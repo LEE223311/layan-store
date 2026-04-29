@@ -536,7 +536,8 @@ def generate_pdf_report():
     filename = f"Mustawda_Report_{now.strftime('%Y-%m-%d_%H%M')}.pdf"
     filepath = os.path.join(REPORTS_DIR, filename)
     pdf.output(filepath)
-    send_email_report(filepath, now)
+    import threading
+    threading.Thread(target=send_email_report, args=(filepath, now), daemon=True).start()
     return filename
 
 

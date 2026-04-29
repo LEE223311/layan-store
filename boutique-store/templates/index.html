@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layan — إدارة المتجر</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --navy:       #0f3460;
+  --navy-dark:  #091f3a;
+  --navy-hover: #0d2d54;
+  --gold:       #d4af37;
+  --gold-light: #e8cc5c;
+  --bg:         #f0f3f8;
+  --card:       #ffffff;
+  --text:       #1e2d40;
+  --muted:      #7a8597;
+  --border:     rgba(0,0,0,0.07);
+  --green:      #059669;
+  --green-bg:   #ecfdf5;
+  --red:        #dc2626;
+  --red-bg:     #fef2f2;
+  --shadow:     0 2px 16px rgba(15,52,96,0.08);
+  --shadow-lg:  0 8px 32px rgba(15,52,96,0.15);
+  --r:          14px;
+  --r-sm:       10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.app-header {
+  background: linear-gradient(120deg, var(--navy-dark) 0%, var(--navy) 60%, #1a4a8a 100%);
+  box-shadow: 0 2px 24px rgba(0,0,0,0.25);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.75rem 0.2rem;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+}
+
+.brand-logo {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 10px;
+  padding: 4px 10px;
+}
+
+.header-clock {
+  color: rgba(255,255,255,0.5);
+  font-size: 0.8rem;
+}
+
+.nav-tabs-bar {
+  display: flex;
+  padding: 0 1rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  gap: 0;
+}
+.nav-tabs-bar::-webkit-scrollbar { display: none; }
+
+.nav-tab {
+  padding: 0.7rem 1.3rem;
+  color: rgba(255,255,255,0.55);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.nav-tab:hover  { color: rgba(255,255,255,0.88); }
+.nav-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+/* ── Main ── */
+.app-main {
+  padding: 1.75rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── Card ── */
+.card {
+  background: var(--card);
+  border: none;
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+
+/* ── Stat cards ── */
+.stat-card {
+  border-radius: var(--r);
+  padding: 1.3rem 1.5rem;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+}
+.stat-card::after {
+  content: '';
+  position: absolute;
+  top: -25px; left: -25px;
+  width: 110px; height: 110px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+}
+.stat-icon { font-size: 1.75rem; opacity: 0.75; margin-bottom: 0.6rem; }
+.stat-label { font-size: 0.78rem; opacity: 0.75; font-weight: 500; margin-bottom: 0.2rem; }
+.stat-value { font-size: 1.6rem; font-weight: 900; line-height: 1.1; }
+
+.stat-navy  { background: linear-gradient(135deg, #0b2a4e, #1a5496); }
+.stat-green { background: linear-gradient(135deg, #046d50, #0aa37a); }
+.stat-gold  { background: linear-gradient(135deg, #8a6918, #c9a537); }
+.stat-red   { background: linear-gradient(135deg, #a81717, #e03535); }
+
+/* ── Section title ── */
+.section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px; height: 18px;
+  background: var(--gold);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Table ── */
+.app-table { width: 100%; border-collapse: collapse; }
+.app-table thead th {
+  font-size: 0.77rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 0.7rem 1rem;
+  background: #f7fafd;
+  border-bottom: 2px solid var(--border);
+}
+.app-table tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.app-table tbody tr:last-child td { border-bottom: none; }
+.app-table tbody tr:hover { background: #f8fafd; }
+
+/* ── Badges ── */
+.badge-stock {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.badge-ok  { background: var(--green-bg); color: var(--green); }
+.badge-low { background: #fffbeb;         color: #b45309; }
+
+/* ── Forms ── */
+.form-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+  display: block;
+}
+.form-control, .form-select {
+  border-radius: var(--r-sm);
+  border: 1.5px solid #e0e6ed;
+  padding: 0.65rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #fff;
+  color: var(--text);
+}
+.form-control:focus, .form-select:focus {
+  outline: none;
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(15,52,96,0.1);
+}
+
+/* ── Buttons ── */
+.btn {
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  border: none;
+}
+.btn-navy {
+  background: var(--navy);
+  color: #fff;
+}
+.btn-navy:hover {
+  background: var(--navy-hover);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(15,52,96,0.3);
+}
+.btn-navy:disabled {
+  opacity: 0.6;
+  transform: none;
+  cursor: not-allowed;
+}
+.btn-outline-navy {
+  background: transparent;
+  color: var(--navy);
+  border: 1.5px solid var(--navy);
+}
+.btn-outline-navy:hover {
+  background: var(--navy);
+  color: #fff;
+}
+.btn-outline-navy:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-return {
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1.5px solid #fecaca;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.9rem;
+}
+.btn-return:hover {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+
+/* ── Qty control ── */
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.qty-btn {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 1.5px solid #e0e6ed;
+  background: #fff;
+  font-size: 1.15rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.qty-btn:hover { border-color: var(--navy); color: var(--navy); }
+.qty-input {
+  width: 72px !important;
+  text-align: center !important;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+/* ── Total preview ── */
+.total-preview {
+  background: linear-gradient(135deg, #f0f3f8, #e8edf5);
+  border-radius: var(--r-sm);
+  padding: 1.1rem;
+  text-align: center;
+  border: 1.5px dashed #c5d0e0;
+}
+.total-label  { font-size: 0.78rem; color: var(--muted); font-weight: 600; margin-bottom: 0.2rem; }
+.total-amount { font-size: 2rem; font-weight: 900; color: var(--navy); line-height: 1.2; }
+
+/* ── Report hero ── */
+.report-hero {
+  background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 60%, #1a4a8a 100%);
+  border-radius: var(--r);
+  padding: 1.75rem;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  min-height: 120px;
+}
+.report-hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 180px; height: 180px;
+  border-radius: 50%;
+  background: rgba(212,175,55,0.1);
+}
+.report-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -20px; left: 30px;
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.04);
+}
+.report-pdf-icon {
+  position: absolute;
+  bottom: 8px; left: 20px;
+  font-size: 2.8rem;
+  opacity: 0.2;
+}
+
+/* ── Transaction item ── */
+.tx-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.tx-item:last-child { border-bottom: none; }
+.tx-sale-amt  { color: var(--green); font-weight: 700; white-space: nowrap; }
+.tx-return-amt { color: var(--red);  font-weight: 700; white-space: nowrap; }
+
+/* ── Return item ── */
+.return-item {
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border);
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  margin-bottom: 0.6rem;
+  transition: box-shadow 0.2s;
+}
+.return-item:hover { box-shadow: var(--shadow); }
+
+/* ── Low stock alert ── */
+.low-stock-card {
+  background: #fffbeb;
+  border: 1.5px solid #fde68a;
+  border-radius: var(--r-sm);
+  padding: 1rem 1.25rem;
+}
+
+/* ── Info list ── */
+.info-list { padding-right: 1.2rem; margin: 0; }
+.info-list li {
+  padding: 0.3rem 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+/* ── Toast ── */
+#toast-container {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+.app-toast {
+  padding: 0.85rem 1.2rem;
+  border-radius: var(--r-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  animation: toastIn 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  pointer-events: all;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.toast-success { background: var(--green-bg); color: #065f46; border: 1px solid #a7f3d0; }
+.toast-danger  { background: var(--red-bg);   color: #991b1b; border: 1px solid #fecaca; }
+
+/* ── Spinner ── */
+.spinner-border-sm {
+  width: 1rem; height: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.65s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+  .app-main { padding: 1rem; }
+  .stat-value { font-size: 1.25rem; }
+  .header-top { padding: 0.7rem 1rem 0.2rem; }
+  .nav-tabs-bar { padding: 0 0.5rem; }
+  .nav-tab { padding: 0.6rem 0.9rem; font-size: 0.82rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══ -->
+<header class="app-header">
+  <div class="header-top">
+    <div class="brand">
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="Layan" class="brand-logo">
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <div class="header-clock" id="header-clock"></div>
+      <a href="/logout" title="تسجيل الخروج"
+         style="color:rgba(255,255,255,0.6);font-size:0.82rem;text-decoration:none;display:flex;align-items:center;gap:0.35rem;padding:0.3rem 0.7rem;border:1px solid rgba(255,255,255,0.2);border-radius:6px;transition:all 0.2s;"
+         onmouseover="this.style.color='white';this.style.borderColor='rgba(255,255,255,0.5)'"
+         onmouseout="this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(255,255,255,0.2)'">
+        <i class="bi bi-box-arrow-right"></i> خروج
+      </a>
+    </div>
+  </div>
+  <div class="nav-tabs-bar">
+    <button class="nav-tab active" onclick="showTab('dashboard')" id="tab-dashboard">
+      <i class="bi bi-grid-1x2-fill"></i> نظرة عامة
+    </button>
+    <button class="nav-tab" onclick="showTab('inventory')" id="tab-inventory">
+      <i class="bi bi-box-seam-fill"></i> المنتجات
+    </button>
+    <button class="nav-tab" onclick="showTab('sales')" id="tab-sales">
+      <i class="bi bi-bag-check-fill"></i> المبيعات
+    </button>
+    <button class="nav-tab" onclick="showTab('returns')" id="tab-returns">
+      <i class="bi bi-arrow-counterclockwise"></i> الشحنات المرفوضة
+    </button>
+    <button class="nav-tab" onclick="showTab('analytics')" id="tab-analytics">
+      <i class="bi bi-bar-chart-line-fill"></i> التحليلات
+    </button>
+    <button class="nav-tab" onclick="showTab('customers')" id="tab-customers">
+      <i class="bi bi-people-fill"></i> العملاء
+    </button>
+    <button class="nav-tab" onclick="showTab('goals')" id="tab-goals">
+      <i class="bi bi-trophy-fill"></i> الأهداف
+    </button>
+    <button class="nav-tab" onclick="showTab('reports')" id="tab-reports">
+      <i class="bi bi-file-earmark-bar-graph-fill"></i> التقارير
+    </button>
+  </div>
+</header>
+
+<!-- ══ TOASTS ══ -->
+<div id="toast-container"></div>
+
+<!-- ══ MAIN ══ -->
+<main class="app-main">
+
+  <!-- ═ DASHBOARD ═ -->
+  <div id="page-dashboard">
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-3">
+        <div class="stat-card stat-navy">
+          <div class="stat-icon"><i class="bi bi-wallet2-fill"></i></div>
+          <div class="stat-label">صافي الإيرادات</div>
+          <div class="stat-value" id="stat-net">—</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card stat-green">
+          <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
+          <div class="stat-label">إجمالي المبيعات</div>
+          <div class="stat-value" id="stat-revenue">—</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card stat-gold">
+          <div class="stat-icon"><i class="bi bi-cart-check-fill"></i></div>
+          <div class="stat-label">عدد عمليات البيع</div>
+          <div class="stat-value" id="stat-sales">—</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card stat-red">
+          <div class="stat-icon"><i class="bi bi-arrow-return-right"></i></div>
+          <div class="stat-label">الشحنات المرفوضة</div>
+          <div class="stat-value" id="stat-returns">—</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3 mt-3 mt-lg-0">
+        <div class="stat-card" style="background:linear-gradient(135deg,#7c4a00,#b8720a);">
+          <div class="stat-icon"><i class="bi bi-coin"></i></div>
+          <div class="stat-label">صافي الربح</div>
+          <div class="stat-value" id="stat-profit">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="low-stock-alert" class="low-stock-card d-none mb-4">
+      <div class="fw-bold mb-1" style="color:#92400e">
+        <i class="bi bi-exclamation-triangle-fill"></i> تنبيه: مخزون منخفض
+      </div>
+      <div id="low-stock-items" style="color:#92400e; font-size:0.875rem;"></div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body p-4">
+        <div class="section-title">آخر العمليات</div>
+        <div id="recent-txs">
+          <p class="text-center py-4" style="color:var(--muted)">لا توجد عمليات بعد.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end mb-3">
+      <button class="btn" style="background:transparent;color:var(--muted);border:1.5px solid #e0e6ed;font-size:0.8rem;padding:0.35rem 0.9rem;"
+          onclick="document.getElementById('clear-modal').style.display='flex'">
+        <i class="bi bi-trash3"></i> مسح السجلات
+      </button>
+    </div>
+
+    <div id="goals-reminder" class="d-none">
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card p-4 h-100">
+            <div class="section-title mb-3"><i class="bi bi-trophy" style="color:var(--gold)"></i> الأهداف التجارية النشطة</div>
+            <div id="dash-biz-goals"><p class="text-center py-2" style="color:var(--muted);font-size:0.875rem;">لا توجد أهداف تجارية.</p></div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card p-4 h-100">
+            <div class="section-title mb-3"><i class="bi bi-person-check" style="color:var(--navy)"></i> الأهداف الشخصية النشطة</div>
+            <div id="dash-personal-goals"><p class="text-center py-2" style="color:var(--muted);font-size:0.875rem;">لا توجد أهداف شخصية.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═ INVENTORY ═ -->
+  <div id="page-inventory" class="d-none">
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <div class="card p-4">
+          <div class="section-title mb-3">إضافة منتج جديد</div>
+          <div class="mb-3">
+            <label class="form-label">اسم المنتج</label>
+            <input id="inv-name" class="form-control" placeholder="مثال: عطر ورد الجوري" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">التصنيف</label>
+            <input id="inv-category" class="form-control" placeholder="مثال: عطور، مستحضرات، هدايا…" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">سعر التكلفة (ر.ع)</label>
+            <input id="inv-cost" class="form-control" type="number" step="0.001" min="0" placeholder="0.000"
+                   oninput="checkPriceLoss()" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">سعر البيع (ر.ع)</label>
+            <input id="inv-price" class="form-control" type="number" step="0.001" min="0.001" placeholder="0.000"
+                   oninput="checkPriceLoss()" />
+          </div>
+          <div id="inv-loss-warn" class="d-none mb-3"
+               style="background:#fff0f0;border:1.5px solid var(--red);border-radius:8px;padding:0.6rem 0.9rem;color:#991b1b;font-size:0.85rem;font-weight:600;">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            تنبيه: سعر البيع أقل من التكلفة — هذا سيؤدي إلى خسارة مالية
+          </div>
+          <div class="mb-4">
+            <label class="form-label">الكمية في المخزن</label>
+            <input id="inv-stock" class="form-control" type="number" min="0" placeholder="0" />
+          </div>
+          <button class="btn btn-navy w-100 py-2" onclick="addProduct()">
+            <i class="bi bi-plus-lg"></i> إضافة المنتج
+          </button>
+        </div>
+      </div>
+      <div class="col-lg-8">
+        <div class="card">
+          <div class="card-body p-0">
+            <div class="px-4 py-3 border-bottom d-flex justify-content-between align-items-center">
+              <div class="section-title mb-0">المخزون الحالي</div>
+              <span class="badge-stock badge-ok" id="inv-count">0 منتج</span>
+            </div>
+            <div class="table-responsive">
+              <table class="app-table">
+                <thead>
+                  <tr>
+                    <th>المنتج</th>
+                    <th>التصنيف</th>
+                    <th>التكلفة (ر.ع)</th>
+                    <th>البيع (ر.ع)</th>
+                    <th>المخزون</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="inv-tbody">
+                  <tr><td colspan="4" class="text-center py-5" style="color:var(--muted)">جاري التحميل…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═ SALES ═ -->
+  <div id="page-sales" class="d-none">
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="card p-4">
+          <div class="section-title mb-3">تسجيل مبيعة جديدة</div>
+          <div class="mb-3">
+            <label class="form-label">اختر المنتج</label>
+            <select id="sale-product" class="form-select" onchange="updateSaleTotal()">
+              <option value="">— اختر منتجاً —</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">الكمية</label>
+            <div class="qty-control">
+              <button class="qty-btn" onclick="adjustQty(-1)">−</button>
+              <input id="sale-qty" class="form-control qty-input" type="number" min="1" value="1" oninput="updateSaleTotal()">
+              <button class="qty-btn" onclick="adjustQty(1)">+</button>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">اسم العميل <span style="color:var(--muted);font-size:0.8rem;">(اختياري)</span></label>
+            <input id="sale-customer-name" class="form-control" placeholder="مثال: أحمد محمد">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">
+              رقم الهاتف
+              <span style="color:var(--red);font-size:0.85rem;font-weight:700;"> *</span>
+              <span style="color:var(--muted);font-size:0.78rem;">(8 أرقام — عُمان)</span>
+            </label>
+            <input id="sale-customer-phone" class="form-control" placeholder="مثال: 91234567"
+                   maxlength="8" inputmode="numeric" pattern="[0-9]{8}"
+                   oninput="validatePhone(this)">
+            <div id="phone-error" class="d-none" style="color:var(--red);font-size:0.8rem;margin-top:0.3rem;">
+              <i class="bi bi-exclamation-circle-fill"></i> رقم الهاتف يجب أن يتكون من 8 أرقام بالضبط
+            </div>
+          </div>
+          <div id="sale-total-box" class="total-preview d-none mb-4">
+            <div class="total-label">إجمالي الطلب</div>
+            <div class="total-amount" id="sale-total-val">0.000 ر.ع</div>
+          </div>
+          <button class="btn btn-navy w-100 py-2" style="font-size:1rem;" onclick="processSale()">
+            <i class="bi bi-check-lg"></i> تأكيد البيع
+          </button>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div class="card">
+          <div class="card-body p-4">
+            <div class="section-title">سجل المبيعات</div>
+            <div id="sales-list">
+              <p class="text-center py-4" style="color:var(--muted)">لا توجد مبيعات بعد.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═ RETURNS ═ -->
+  <div id="page-returns" class="d-none">
+    <p style="color:var(--muted); font-size:0.875rem;" class="mb-4">
+      <i class="bi bi-info-circle"></i>
+      اختر نوع المعالجة لكل شحنة: <strong>قبول واسترجاع</strong> لإعادة المنتج للمخزون، أو <strong>قبول وإتلاف</strong> إذا كان المنتج تالفاً.
+    </p>
+    <div class="section-title">الشحنات المرفوضة</div>
+    <div id="returns-open-list" class="mb-4"></div>
+    <div id="returns-done-section" class="d-none">
+      <div class="section-title">الشحنات المرفوضة المعالجة</div>
+      <div class="card p-3" id="returns-done-list"></div>
+    </div>
+  </div>
+
+  <!-- ═ REPORTS ═ -->
+  <div id="page-reports" class="d-none">
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="report-hero mb-3">
+          <div style="font-size:0.78rem; opacity:0.6; margin-bottom:0.4rem;">آخر تقرير مُنشأ</div>
+          <div id="report-date" class="fw-bold fs-5 mb-1">جاري التحقق…</div>
+          <div id="report-name" style="font-size:0.78rem; opacity:0.5;"></div>
+          <div class="report-pdf-icon"><i class="bi bi-file-earmark-pdf-fill"></i></div>
+        </div>
+        <div class="card p-4">
+          <button class="btn btn-navy w-100 py-2 mb-3" id="btn-generate" onclick="generateReport()">
+            <i class="bi bi-file-earmark-plus"></i> إنشاء تقرير جديد الآن
+          </button>
+          <button class="btn btn-outline-navy w-100 py-2" id="btn-download" onclick="downloadReport()" disabled>
+            <i class="bi bi-download"></i> تحميل آخر تقرير (PDF)
+          </button>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div class="card p-4 h-100">
+          <div class="section-title">محتوى التقرير</div>
+          <ul class="info-list">
+            <li>ملخص مالي — إجمالي الإيرادات، الشحنات المرفوضة، وصافي الدخل</li>
+            <li>جرد المخزون الحالي مع إشارات للمنتجات منخفضة المخزون</li>
+            <li>سجل كامل لجميع عمليات البيع والشحنات المرفوضة</li>
+          </ul>
+          <hr style="border-color:var(--border); margin:1.2rem 0;">
+          <div style="color:var(--muted); font-size:0.875rem;">
+            <div class="fw-semibold mb-1" style="color:var(--navy);">
+              <i class="bi bi-clock-history"></i> التوليد والإرسال التلقائي
+            </div>
+            يُنشأ التقرير تلقائياً كل 14 يوماً ويُرسل مباشرةً إلى بريدك الإلكتروني.
+            يمكنك دائماً إنشاؤه يدوياً بالضغط على الزر.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═ ANALYTICS ═ -->
+  <div id="page-analytics" class="d-none">
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-3">
+        <div class="stat-card stat-navy">
+          <div class="stat-icon"><i class="bi bi-calendar-check"></i></div>
+          <div class="stat-label">أيام نشطة (30 يوم)</div>
+          <div class="stat-value" id="an-active-days">—</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card stat-green">
+          <div class="stat-icon"><i class="bi bi-graph-up"></i></div>
+          <div class="stat-label">إيرادات آخر 30 يوم</div>
+          <div class="stat-value" id="an-period-revenue">—</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card stat-gold">
+          <div class="stat-icon"><i class="bi bi-award"></i></div>
+          <div class="stat-label">أفضل منتج</div>
+          <div class="stat-value" id="an-top-product" style="font-size:1rem;">—</div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="stat-card stat-red">
+          <div class="stat-icon"><i class="bi bi-tags"></i></div>
+          <div class="stat-label">عدد التصنيفات</div>
+          <div class="stat-value" id="an-categories">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+      <div class="col-lg-8">
+        <div class="card p-4">
+          <div class="section-title">الإيرادات اليومية — آخر 30 يوم</div>
+          <canvas id="chart-daily" height="110"></canvas>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card p-4">
+          <div class="section-title">توزيع التصنيفات</div>
+          <canvas id="chart-cats" height="180"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-4">
+      <div class="section-title">أفضل المنتجات مبيعاً</div>
+      <canvas id="chart-products" height="90"></canvas>
+    </div>
+
+    <div class="card p-4 mt-4">
+      <div class="section-title mb-3">
+        <i class="bi bi-star-fill me-1" style="color:var(--gold)"></i> كبار العملاء
+      </div>
+      <div id="top-customers-list">
+        <p class="text-center py-3" style="color:var(--muted)">جاري التحميل…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═ CUSTOMERS ═ -->
+  <div id="page-customers" class="d-none">
+    <div class="card p-4 mb-4">
+      <div class="section-title mb-3"><i class="bi bi-funnel-fill me-1"></i>فلترة العملاء</div>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+          <label class="form-label">المنتج المشترى</label>
+          <input id="cust-filter-product" class="form-control" placeholder="اسم المنتج">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">كمية (حد أدنى)</label>
+          <input id="cust-filter-qty" class="form-control" type="number" min="1" placeholder="—">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">من تاريخ</label>
+          <input id="cust-filter-from" class="form-control" type="date">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">إلى تاريخ</label>
+          <input id="cust-filter-to" class="form-control" type="date">
+        </div>
+        <div class="col-md-2">
+          <button class="btn btn-navy w-100" onclick="loadCustomersPage()">
+            <i class="bi bi-search"></i> بحث
+          </button>
+        </div>
+        <div class="col-md-1">
+          <button class="btn w-100" style="border:1px solid var(--border);" onclick="clearCustomerFilters()">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="section-title mb-0">سجلات العملاء</div>
+          <span id="cust-count" style="font-size:0.82rem;color:var(--muted);"></span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead>
+              <tr style="background:var(--navy);color:white;font-size:0.85rem;">
+                <th style="background:var(--navy);color:white;">#</th>
+                <th style="background:var(--navy);color:white;">الاسم</th>
+                <th style="background:var(--navy);color:white;">رقم الهاتف</th>
+                <th style="background:var(--navy);color:white;">الطلبات</th>
+                <th style="background:var(--navy);color:white;">إجمالي الكمية</th>
+                <th style="background:var(--navy);color:white;">إجمالي الإنفاق</th>
+                <th style="background:var(--navy);color:white;">آخر شراء</th>
+                <th style="background:var(--navy);color:white;">المنتجات</th>
+              </tr>
+            </thead>
+            <tbody id="customers-tbody">
+              <tr><td colspan="8" class="text-center py-5" style="color:var(--muted)">جاري التحميل…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═ GOALS ═ -->
+  <div id="page-goals" class="d-none">
+    <div class="row g-4">
+      <div class="col-lg-4">
+        <div class="card p-4">
+          <div class="section-title mb-3">إضافة هدف جديد</div>
+          <div class="mb-3">
+            <label class="form-label">عنوان الهدف</label>
+            <input id="goal-title" class="form-control" placeholder="مثال: بيع 100 وحدة عطور" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">المنتج (اختياري)</label>
+            <select id="goal-product" class="form-select">
+              <option value="">— جميع المنتجات —</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">الكمية المستهدفة</label>
+            <input id="goal-qty" class="form-control" type="number" min="1" placeholder="100" />
+          </div>
+          <button class="btn btn-navy w-100 py-2" onclick="addGoal()">
+            <i class="bi bi-plus-lg"></i> إضافة الهدف
+          </button>
+        </div>
+      </div>
+      <div class="col-lg-8">
+        <div class="section-title">الأهداف التجارية</div>
+        <div id="goals-list" class="mb-4">
+          <p class="text-center py-4" style="color:var(--muted)">لا توجد أهداف بعد. أضف أول هدف من النموذج.</p>
+        </div>
+
+        <hr style="border-color:var(--border);margin:1.5rem 0;">
+
+        <div class="section-title"><i class="bi bi-person-check" style="color:var(--navy)"></i> الأهداف الشخصية</div>
+        <div class="d-flex gap-2 mb-3">
+          <input id="pg-text" class="form-control" placeholder="اكتب هدفاً شخصياً…" style="flex:1;"
+              onkeydown="if(event.key==='Enter')addPersonalGoal()" />
+          <button class="btn btn-navy" onclick="addPersonalGoal()" style="white-space:nowrap;">
+            <i class="bi bi-plus-lg"></i> إضافة
+          </button>
+        </div>
+        <div id="personal-goals-list">
+          <p class="text-center py-3" style="color:var(--muted);font-size:0.875rem;">لا توجد أهداف شخصية بعد.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═ CLEAR RECORDS MODAL ═ -->
+  <div id="clear-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9000;align-items:center;justify-content:center;">
+    <div class="card p-4" style="max-width:420px;width:92%;border-radius:var(--r);">
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem;">
+        <i class="bi bi-exclamation-triangle-fill" style="color:var(--red);font-size:1.4rem;"></i>
+        <span style="font-size:1rem;font-weight:700;color:var(--red);">مسح جميع السجلات</span>
+      </div>
+      <p style="font-size:0.875rem;color:var(--muted);margin-bottom:1.25rem;">
+        سيتم حذف جميع سجلات البيع والمرتجعات نهائياً. لا يمكن التراجع عن هذا الإجراء.<br>
+        أدخل كلمة المرور للمتابعة.
+      </p>
+      <input id="clear-password" type="password" class="form-control mb-3"
+          placeholder="كلمة المرور"
+          onkeydown="if(event.key==='Enter')submitClearRecords()" />
+      <div id="clear-error" style="color:var(--red);font-size:0.82rem;margin-bottom:0.75rem;display:none;"></div>
+      <div class="d-flex gap-3">
+        <button class="btn" style="flex:1;background:var(--red);color:#fff;border:none;"
+            onclick="submitClearRecords()">
+          <i class="bi bi-trash3-fill"></i> مسح السجلات
+        </button>
+        <button class="btn btn-outline-navy" style="flex:1;"
+            onclick="document.getElementById('clear-modal').style.display='none';document.getElementById('clear-password').value='';document.getElementById('clear-error').style.display='none';">
+          إلغاء
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═ RETURN MODAL ═ -->
+  <div id="return-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;align-items:center;justify-content:center;">
+    <div class="card p-4" style="max-width:420px;width:92%;border-radius:var(--r);">
+      <div class="section-title mb-2">تأكيد معالجة الشحنة</div>
+      <p style="font-size:0.95rem;margin-bottom:1.5rem;color:var(--text);">
+        هل قمت بإرجاع المبلغ للعميل أم لا؟
+      </p>
+      <div class="d-flex gap-3">
+        <button class="btn btn-navy" style="flex:1;" onclick="confirmReturn(true)">
+          <i class="bi bi-check-lg"></i> نعم، تم الإرجاع
+        </button>
+        <button class="btn btn-outline-navy" style="flex:1;" onclick="confirmReturn(false)">
+          <i class="bi bi-x-lg"></i> لا، لم يُرجع
+        </button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const fmt = n => parseFloat(n).toFixed(3) + " ر.ع";
+
+// Clock
+function updateClock(){
+  const now = new Date();
+  document.getElementById("header-clock").textContent =
+    now.toLocaleTimeString("ar-OM", {hour:"2-digit", minute:"2-digit"});
+}
+updateClock();
+setInterval(updateClock, 60000);
+
+// Toast
+function toast(msg, type="success", duration=4000){
+  const c = document.getElementById("toast-container");
+  const d = document.createElement("div");
+  d.className = `app-toast toast-${type}`;
+  const icon = type === "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill";
+  d.innerHTML = `<i class="bi ${icon}"></i><span>${msg}</span>`;
+  c.appendChild(d);
+  setTimeout(() => d.remove(), duration);
+}
+
+function toastSale(total, tx_id){
+  const c = document.getElementById("toast-container");
+  const d = document.createElement("div");
+  d.className = "app-toast toast-success";
+  d.style.cssText = "min-width:340px;justify-content:space-between;gap:1rem;";
+  d.innerHTML = `
+    <div style="display:flex;align-items:center;gap:0.6rem;">
+      <i class="bi bi-check-circle-fill"></i>
+      <span>تمت العملية بنجاح · <strong>${total}</strong></span>
+    </div>
+    <a href="/api/invoice/${tx_id}" target="_blank"
+       style="background:var(--navy);color:white;padding:0.25rem 0.85rem;border-radius:6px;
+              text-decoration:none;font-size:0.8rem;font-weight:600;white-space:nowrap;flex-shrink:0;">
+      <i class="bi bi-file-earmark-pdf"></i> تنزيل الفاتورة
+    </a>`;
+  c.appendChild(d);
+  setTimeout(() => d.remove(), 12000);
+}
+
+async function api(method, url, body=null){
+  const opts = {method, headers:{"Content-Type":"application/json"}};
+  if(body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if(r.status === 401){ window.location.href = "/login"; return {}; }
+  return r.json();
+}
+
+// Tabs
+function showTab(name){
+  ["dashboard","inventory","sales","returns","reports","analytics","customers","goals"].forEach(t=>{
+    document.getElementById("page-"+t).classList.add("d-none");
+    document.getElementById("tab-"+t).classList.remove("active");
+  });
+  document.getElementById("page-"+name).classList.remove("d-none");
+  document.getElementById("tab-"+name).classList.add("active");
+  if(name==="dashboard") loadDashboard();
+  if(name==="inventory") loadInventory();
+  if(name==="sales")     loadSalesPage();
+  if(name==="returns")   loadReturnsPage();
+  if(name==="reports")   loadReportsPage();
+  if(name==="analytics") loadAnalyticsPage();
+  if(name==="customers") loadCustomersPage();
+  if(name==="goals")     loadGoalsPage();
+}
+
+// Dashboard
+async function loadDashboard(){
+  const [d, bizGoals, pgGoals] = await Promise.all([
+    api("GET","/api/dashboard"),
+    api("GET","/api/goals"),
+    api("GET","/api/personal-goals"),
+  ]);
+  document.getElementById("stat-net").textContent     = fmt(d.net);
+  document.getElementById("stat-revenue").textContent = fmt(d.revenue);
+  document.getElementById("stat-sales").textContent   = d.sales_count;
+  document.getElementById("stat-returns").textContent = d.returns_count;
+  document.getElementById("stat-profit").textContent  = fmt(d.profit);
+
+  // Goals reminder
+  const activeBiz = bizGoals.filter(g=>g.progress<100);
+  const activePg  = pgGoals.filter(g=>!g.achieved);
+  const reminder  = document.getElementById("goals-reminder");
+  if(activeBiz.length || activePg.length){
+    reminder.classList.remove("d-none");
+    const bizBox = document.getElementById("dash-biz-goals");
+    bizBox.innerHTML = activeBiz.length ? activeBiz.map(g=>{
+      const c = g.progress>=50?"var(--gold)":"var(--red)";
+      return `<div style="margin-bottom:0.6rem;">
+        <div style="display:flex;justify-content:space-between;font-size:0.875rem;margin-bottom:0.2rem;">
+          <span class="fw-semibold">${g.title}</span>
+          <span style="color:${c};font-weight:700;">${g.progress}%</span>
+        </div>
+        <div style="background:#e9ecef;border-radius:20px;height:8px;">
+          <div style="width:${g.progress}%;background:${c};height:100%;border-radius:20px;"></div>
+        </div>
+      </div>`;
+    }).join("") : '<p style="color:var(--muted);font-size:0.875rem;">كل الأهداف التجارية مكتملة!</p>';
+
+    const pgBox = document.getElementById("dash-personal-goals");
+    pgBox.innerHTML = activePg.length ? activePg.map(g=>`
+      <div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border);">
+        <i class="bi bi-circle" style="color:var(--navy);font-size:0.9rem;flex-shrink:0;"></i>
+        <span style="font-size:0.875rem;">${g.text}</span>
+      </div>`).join("") : '<p style="color:var(--muted);font-size:0.875rem;">كل الأهداف الشخصية مكتملة!</p>';
+  } else {
+    reminder.classList.add("d-none");
+  }
+
+  const al = document.getElementById("low-stock-alert");
+  if(d.low_stock.length > 0){
+    al.classList.remove("d-none");
+    document.getElementById("low-stock-items").innerHTML =
+      d.low_stock.map(p=>`${p.name} — ${p.stock} وحدة متبقية`).join(" &nbsp;|&nbsp; ");
+  } else {
+    al.classList.add("d-none");
+  }
+
+  const box = document.getElementById("recent-txs");
+  if(!d.recent.length){
+    box.innerHTML='<p class="text-center py-4" style="color:var(--muted)">لا توجد عمليات بعد.</p>';
+    return;
+  }
+  box.innerHTML = d.recent.map(t=>`
+    <div class="tx-item">
+      <div>
+        <div class="fw-semibold">${t.type==="sale"?"بيع":"شحنة مرفوضة"} × ${t.qty} — ${t.product_name}</div>
+        <div style="color:var(--muted);font-size:0.8rem;">عملية رقم #${t.id}</div>
+      </div>
+      <div class="${t.type==="sale"?"tx-sale-amt":"tx-return-amt"}">
+        ${t.type==="sale"?"+":"-"}${fmt(t.total)}
+      </div>
+    </div>`).join("");
+}
+
+// Inventory
+async function loadInventory(){
+  const products = await api("GET","/api/products");
+  document.getElementById("inv-count").textContent = `${products.length} منتج`;
+  const tb = document.getElementById("inv-tbody");
+  if(!products.length){
+    tb.innerHTML='<tr><td colspan="4" class="text-center py-5" style="color:var(--muted)">لا توجد منتجات. أضف أول منتج من النموذج.</td></tr>';
+    return;
+  }
+  tb.innerHTML = products.map(p=>`
+    <tr>
+      <td class="fw-semibold">${p.name}</td>
+      <td style="color:var(--muted)">${p.category||"—"}</td>
+      <td style="color:var(--muted)">${p.cost_price>0?fmt(p.cost_price):"—"}</td>
+      <td>${fmt(p.price)}</td>
+      <td><span class="badge-stock ${p.stock<15?"badge-low":"badge-ok"}">
+        <i class="bi bi-${p.stock<15?"exclamation-triangle":"check-lg"}"></i>
+        ${p.stock} وحدة
+      </span></td>
+      <td><button class="btn btn-return" style="padding:0.3rem 0.7rem;font-size:0.78rem;"
+          onclick="deleteProduct(${p.id},'${p.name.replace(/'/g,"\\'")}')">
+        <i class="bi bi-trash3"></i>
+      </button></td>
+    </tr>`).join("");
+}
+
+function checkPriceLoss(){
+  const cost  = parseFloat(document.getElementById("inv-cost").value)  || 0;
+  const price = parseFloat(document.getElementById("inv-price").value) || 0;
+  const warn  = document.getElementById("inv-loss-warn");
+  if(cost > 0 && price > 0 && cost > price) warn.classList.remove("d-none");
+  else                                       warn.classList.add("d-none");
+}
+
+function validatePhone(el){
+  const err = document.getElementById("phone-error");
+  const val = el.value.replace(/\D/g,"");
+  el.value = val;
+  if(val.length > 0 && val.length !== 8) err.classList.remove("d-none");
+  else                                   err.classList.add("d-none");
+}
+
+async function addProduct(){
+  const name       = document.getElementById("inv-name").value.trim();
+  const category   = document.getElementById("inv-category").value.trim();
+  const cost_price = parseFloat(document.getElementById("inv-cost").value) || 0;
+  const price      = parseFloat(document.getElementById("inv-price").value);
+  const stock      = parseInt(document.getElementById("inv-stock").value);
+  if(!name||isNaN(price)||price<=0||cost_price<0||isNaN(stock)||stock<0){
+    toast("يرجى ملء جميع الحقول بقيم صحيحة","danger"); return;
+  }
+  if(cost_price > 0 && cost_price > price){
+    if(!confirm("⚠️ سعر البيع المحدد سيؤدي إلى خسارة مالية!\n\nهل أنت متأكد من رغبتك في الاستمرار؟"))
+      return;
+  }
+  const res = await api("POST","/api/products",{name,category,price,cost_price,stock});
+  if(res.error){ toast(res.error,"danger"); return; }
+  toast("تمت إضافة المنتج بنجاح");
+  document.getElementById("inv-name").value  = "";
+  document.getElementById("inv-cost").value  = "";
+  document.getElementById("inv-price").value = "";
+  document.getElementById("inv-stock").value = "";
+  document.getElementById("inv-loss-warn").classList.add("d-none");
+  loadInventory();
+}
+
+// Sales
+async function loadSalesPage(){
+  const products = await api("GET","/api/products");
+  const sel = document.getElementById("sale-product");
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— اختر منتجاً —</option>' +
+    products.filter(p=>p.stock>0).map(p=>
+      `<option value="${p.id}" data-price="${p.price}">${p.name} (${p.stock} متوفر — ${fmt(p.price)})</option>`
+    ).join("");
+  if(prev) sel.value = prev;
+  updateSaleTotal();
+
+  const txs = await api("GET","/api/transactions?type=sale");
+  const box = document.getElementById("sales-list");
+  if(!txs.length){
+    box.innerHTML='<p class="text-center py-4" style="color:var(--muted)">لا توجد مبيعات بعد.</p>';
+    return;
+  }
+  box.innerHTML = txs.map(t=>{
+    const custLine = [t.customer_name, t.customer_phone].filter(Boolean).join(" · ");
+    return `
+    <div class="tx-item">
+      <div>
+        <div class="fw-semibold">${t.product_name} × ${t.qty}</div>
+        <div style="color:var(--muted);font-size:0.78rem;">#${t.id}${custLine ? " · " + custLine : ""}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.5rem;">
+        <span class="tx-sale-amt">+${fmt(t.total)}</span>
+        <a href="/api/invoice/${t.id}" target="_blank"
+           class="btn btn-navy" style="padding:0.25rem 0.6rem;font-size:0.78rem;"
+           title="تنزيل الفاتورة">
+          <i class="bi bi-file-earmark-pdf"></i>
+        </a>
+        <button class="btn btn-return" style="padding:0.25rem 0.6rem;font-size:0.78rem;"
+            title="حذف العملية"
+            onclick="deleteSale(${t.id})">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function adjustQty(delta){
+  const el = document.getElementById("sale-qty");
+  el.value = Math.max(1, parseInt(el.value||1)+delta);
+  updateSaleTotal();
+}
+
+function updateSaleTotal(){
+  const sel = document.getElementById("sale-product");
+  const opt = sel.selectedOptions[0];
+  const qty = parseInt(document.getElementById("sale-qty").value)||1;
+  const box = document.getElementById("sale-total-box");
+  if(!opt||!opt.dataset.price){ box.classList.add("d-none"); return; }
+  document.getElementById("sale-total-val").textContent =
+    (parseFloat(opt.dataset.price)*qty).toFixed(3)+" ر.ع";
+  box.classList.remove("d-none");
+}
+
+async function processSale(){
+  const product_id     = parseInt(document.getElementById("sale-product").value);
+  const qty            = parseInt(document.getElementById("sale-qty").value);
+  const customer_name  = document.getElementById("sale-customer-name").value.trim();
+  const customer_phone = document.getElementById("sale-customer-phone").value.trim();
+  if(!product_id){ toast("يرجى اختيار منتج","danger"); return; }
+  if(!/^\d{8}$/.test(customer_phone)){
+    toast("رقم الهاتف مطلوب ويجب أن يتكون من 8 أرقام بالضبط (نظام عُمان)","danger");
+    document.getElementById("sale-customer-phone").focus();
+    return;
+  }
+  const res = await api("POST","/api/sale",{product_id, qty, customer_name, customer_phone});
+  if(res.error){ toast(res.error,"danger"); return; }
+  toastSale(fmt(res.total), res.tx_id);
+  document.getElementById("sale-qty").value           = 1;
+  document.getElementById("sale-product").value       = "";
+  document.getElementById("sale-customer-name").value  = "";
+  document.getElementById("sale-customer-phone").value = "";
+  updateSaleTotal();
+  loadSalesPage();
+}
+
+// Returns
+async function loadReturnsPage(){
+  const all  = await api("GET","/api/transactions");
+  const open = all.filter(t=>t.type==="sale"&&!t.returned);
+  const done = all.filter(t=>t.type==="return");
+
+  const openBox = document.getElementById("returns-open-list");
+  if(!open.length){
+    openBox.innerHTML=`<div class="card p-4 text-center" style="color:var(--muted)">
+      <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+      لا توجد شحنات مرفوضة.
+    </div>`;
+  } else {
+    openBox.innerHTML = open.map(tx=>`
+      <div class="return-item">
+        <div>
+          <div class="fw-semibold">${tx.product_name}</div>
+          <div style="color:var(--muted);font-size:0.82rem;">
+            الكمية: ${tx.qty} · مبيعة #${tx.id} · ${fmt(tx.total)}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.4rem;min-width:160px;">
+          <button class="btn" style="background:#ecfdf5;color:#065f46;border:1.5px solid #a7f3d0;font-size:0.8rem;padding:0.35rem 0.8rem;font-weight:600;"
+              onclick="doReturn(${tx.id}, true)">
+            <i class="bi bi-arrow-counterclockwise"></i> إرجاع المنتج للمخزن
+          </button>
+          <button class="btn btn-return" style="font-size:0.8rem;padding:0.35rem 0.8rem;"
+              onclick="doReturn(${tx.id}, false)">
+            <i class="bi bi-trash3"></i> المنتج مسترجع ولكن تالف
+          </button>
+        </div>
+      </div>`).join("");
+  }
+
+  const doneSection = document.getElementById("returns-done-section");
+  const doneBox     = document.getElementById("returns-done-list");
+  if(!done.length){ doneSection.classList.add("d-none"); return; }
+  doneSection.classList.remove("d-none");
+  doneBox.innerHTML = done.map(t=>`
+    <div class="tx-item">
+      <span style="color:var(--muted)">
+        <i class="bi bi-arrow-counterclockwise"></i> ${t.product_name} × ${t.qty}
+      </span>
+      <span class="tx-return-amt">-${fmt(t.total)}</span>
+    </div>`).join("");
+}
+
+let _pendingReturn = null;
+
+function doReturn(tx_id, restock){
+  _pendingReturn = {tx_id, restock};
+  const m = document.getElementById("return-modal");
+  m.style.display = "flex";
+}
+
+async function confirmReturn(refunded){
+  document.getElementById("return-modal").style.display = "none";
+  if(!_pendingReturn) return;
+  const {tx_id, restock} = _pendingReturn;
+  _pendingReturn = null;
+  const res = await api("POST",`/api/return/${tx_id}`,{restock, refunded});
+  if(res.error){ toast(res.error,"danger"); return; }
+  toast(res.message);
+  loadReturnsPage();
+}
+
+// Reports
+async function loadReportsPage(){
+  const info = await api("GET","/api/report/latest");
+  const dateEl = document.getElementById("report-date");
+  const nameEl = document.getElementById("report-name");
+  const btnDl  = document.getElementById("btn-download");
+  if(info.available){
+    dateEl.textContent = info.date;
+    nameEl.textContent = info.filename;
+    btnDl.removeAttribute("disabled");
+  } else {
+    dateEl.textContent = "لا يوجد تقرير بعد";
+    nameEl.textContent = "اضغط على الزر أدناه لإنشاء أول تقرير";
+    btnDl.setAttribute("disabled","");
+  }
+}
+
+async function generateReport(){
+  const btn = document.getElementById("btn-generate");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border-sm"></span> جاري الإنشاء…';
+  const res = await api("POST","/api/report/generate");
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-file-earmark-plus"></i> إنشاء تقرير جديد الآن';
+  if(res.error){ toast("فشل الإنشاء: "+res.error,"danger"); return; }
+  toast("تم إنشاء التقرير وإرساله بنجاح");
+  loadReportsPage();
+}
+
+function downloadReport(){
+  window.location.href = "/api/report/download";
+}
+
+// Delete sale
+async function deleteSale(id){
+  if(!confirm("هل أنت متأكد من حذف هذه العملية؟ سيتم إعادة المنتج للمخزون.")) return;
+  const res = await api("DELETE",`/api/transactions/${id}`);
+  if(res.error){ toast(res.error,"danger"); return; }
+  toast(res.message);
+  loadSalesPage();
+}
+
+// Clear records
+async function submitClearRecords(){
+  const pw  = document.getElementById("clear-password").value;
+  const err = document.getElementById("clear-error");
+  if(!pw){ err.textContent="يرجى إدخال كلمة المرور"; err.style.display="block"; return; }
+  const res = await api("POST","/api/clear-records",{password:pw});
+  if(res.error){
+    err.textContent = res.error;
+    err.style.display = "block";
+    document.getElementById("clear-password").value = "";
+    return;
+  }
+  document.getElementById("clear-modal").style.display = "none";
+  document.getElementById("clear-password").value = "";
+  err.style.display = "none";
+  toast(res.message);
+  loadDashboard();
+}
+
+// Personal goals
+async function addPersonalGoal(){
+  const input = document.getElementById("pg-text");
+  const text  = input.value.trim();
+  if(!text){ toast("يرجى كتابة نص الهدف","danger"); return; }
+  const res = await api("POST","/api/personal-goals",{text});
+  if(res.error){ toast(res.error,"danger"); return; }
+  input.value = "";
+  toast("تمت إضافة الهدف الشخصي");
+  loadGoalsPage();
+}
+
+async function togglePersonalGoal(id){
+  const res = await api("PATCH",`/api/personal-goals/${id}/toggle`);
+  if(res.error){ toast(res.error,"danger"); return; }
+  loadGoalsPage();
+}
+
+async function deletePersonalGoal(id){
+  const res = await api("DELETE",`/api/personal-goals/${id}`);
+  if(res.error){ toast(res.error,"danger"); return; }
+  loadGoalsPage();
+}
+
+// Delete product
+async function deleteProduct(id, name){
+  if(!confirm(`هل أنت متأكد من حذف "${name}"؟\nلا يمكن التراجع عن هذا الإجراء.`)) return;
+  const res = await api("DELETE", `/api/products/${id}`);
+  if(res.error){ toast(res.error,"danger"); return; }
+  toast(res.message);
+  loadInventory();
+}
+
+// Analytics
+let _charts = {};
+async function loadAnalyticsPage(){
+  const [d, topC] = await Promise.all([
+    api("GET","/api/analytics"),
+    api("GET","/api/customers/top"),
+  ]);
+
+  // summary stats
+  const totalRev = d.daily.reduce((s,r)=>s+r.revenue,0);
+  document.getElementById("an-active-days").textContent    = d.daily.length;
+  document.getElementById("an-period-revenue").textContent = fmt(totalRev);
+  document.getElementById("an-top-product").textContent    = d.top_products[0]?.product_name || "—";
+  document.getElementById("an-categories").textContent     = d.categories.length;
+
+  // destroy old charts to prevent "canvas already in use"
+  Object.values(_charts).forEach(c => c && c.destroy());
+  _charts = {};
+
+  const NAVY = "#0f3460", GOLD = "#d4af37";
+  const PALETTE = ["#0f3460","#d4af37","#059669","#dc2626","#7c3aed","#0891b2","#b45309","#be123c"];
+
+  // Line chart — daily revenue
+  if(d.daily.length){
+    _charts.daily = new Chart(document.getElementById("chart-daily"), {
+      type:"line",
+      data:{
+        labels: d.daily.map(r=>r.day.slice(5)),
+        datasets:[{
+          label:"الإيرادات (ر.ع)",
+          data: d.daily.map(r=>r.revenue),
+          borderColor: NAVY, backgroundColor: "rgba(15,52,96,0.08)",
+          borderWidth:2, pointRadius:4, fill:true, tension:0.3
+        }]
+      },
+      options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}, responsive:true}
+    });
+  }
+
+  // Doughnut chart — categories
+  if(d.categories.length){
+    _charts.cats = new Chart(document.getElementById("chart-cats"), {
+      type:"doughnut",
+      data:{
+        labels: d.categories.map(r=>r.category),
+        datasets:[{data: d.categories.map(r=>r.revenue), backgroundColor: PALETTE, borderWidth:2}]
+      },
+      options:{plugins:{legend:{position:"bottom",labels:{font:{size:11}}}}, responsive:true}
+    });
+  }
+
+  // Top customers list
+  const tcBox = document.getElementById("top-customers-list");
+  if(!topC.length){
+    tcBox.innerHTML = '<p class="text-center py-3" style="color:var(--muted)">لا توجد بيانات عملاء بعد — أضف اسم العميل عند البيع.</p>';
+  } else {
+    const medals = ["🥇","🥈","🥉"];
+    tcBox.innerHTML = topC.map((c,i)=>`
+      <div style="display:flex;align-items:center;gap:1rem;padding:0.75rem 0;border-bottom:1px solid var(--border);">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--navy);color:white;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;">
+          ${i<3 ? medals[i] : i+1}
+        </div>
+        <div style="flex:1;">
+          <div class="fw-semibold" style="font-size:0.95rem;">${c.customer_name}</div>
+          <div style="font-size:0.78rem;color:var(--muted);">
+            ${c.customer_phone ? c.customer_phone+" · " : ""}${c.purchases} طلب · ${c.total_qty} وحدة
+          </div>
+        </div>
+        <div style="font-weight:700;color:var(--gold);font-size:1.05rem;">${fmt(c.total_spent)}</div>
+      </div>`).join("");
+  }
+
+  // Bar chart — top products
+  if(d.top_products.length){
+    _charts.products = new Chart(document.getElementById("chart-products"), {
+      type:"bar",
+      data:{
+        labels: d.top_products.map(r=>r.product_name),
+        datasets:[{
+          label:"الإيرادات (ر.ع)",
+          data: d.top_products.map(r=>r.revenue),
+          backgroundColor: NAVY, borderRadius:6
+        }]
+      },
+      options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}, responsive:true}
+    });
+  }
+}
+
+// Goals
+async function loadGoalsPage(){
+  const [products, pgGoals] = await Promise.all([
+    api("GET","/api/products"),
+    api("GET","/api/personal-goals"),
+  ]);
+  const sel = document.getElementById("goal-product");
+  sel.innerHTML = '<option value="">— جميع المنتجات —</option>' +
+    products.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+
+  // personal goals
+  const pgBox = document.getElementById("personal-goals-list");
+  if(!pgGoals.length){
+    pgBox.innerHTML='<p class="text-center py-3" style="color:var(--muted);font-size:0.875rem;">لا توجد أهداف شخصية بعد.</p>';
+  } else {
+    pgBox.innerHTML = pgGoals.map(g=>`
+      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0.5rem;border-bottom:1px solid var(--border);${g.achieved?"opacity:0.55":""}">
+        <button onclick="togglePersonalGoal(${g.id})" style="background:none;border:none;cursor:pointer;padding:0;font-size:1.1rem;color:${g.achieved?"var(--green)":"var(--muted)"};">
+          <i class="bi bi-${g.achieved?"check-circle-fill":"circle"}"></i>
+        </button>
+        <span style="flex:1;font-size:0.9rem;${g.achieved?"text-decoration:line-through;color:var(--muted)":""}">${g.text}</span>
+        ${g.achieved?'<span style="font-size:0.75rem;font-weight:700;color:var(--green);background:var(--green-bg);padding:0.2rem 0.6rem;border-radius:20px;">محقق ✓</span>':""}
+        <button onclick="deletePersonalGoal(${g.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:0.9rem;padding:0;">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>`).join("");
+  }
+
+  // load goals
+  const goals = await api("GET","/api/goals");
+  const box   = document.getElementById("goals-list");
+  if(!goals.length){
+    box.innerHTML='<p class="text-center py-4" style="color:var(--muted)">لا توجد أهداف بعد. أضف أول هدف من النموذج.</p>';
+    return;
+  }
+
+  box.innerHTML = goals.map(g=>{
+    const pct   = g.progress;
+    const color = pct>=100?"var(--green)":pct>=50?"var(--gold)":"var(--red)";
+    const label = pct>=100?"مكتمل ✓":pct>=50?"قيد التنفيذ":"لم يبدأ بعد";
+    return `
+    <div class="card mb-3 p-4">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold" style="font-size:1rem;">${g.title}</div>
+          <div style="color:var(--muted);font-size:0.82rem;">
+            ${g.product_id ? "منتج محدد" : "جميع المنتجات"} &nbsp;·&nbsp;
+            المستهدف: ${g.target_qty} وحدة
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span style="font-size:0.78rem;font-weight:700;color:${color}">${label}</span>
+          <button class="btn btn-return" style="padding:0.3rem 0.7rem;font-size:0.78rem;"
+              onclick="deleteGoal(${g.id})">
+            <i class="bi bi-trash3"></i>
+          </button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="flex:1;background:#e9ecef;border-radius:20px;height:12px;overflow:hidden;">
+          <div style="width:${pct}%;background:${color};height:100%;border-radius:20px;transition:width 0.5s;"></div>
+        </div>
+        <div style="font-size:0.85rem;font-weight:700;color:${color};white-space:nowrap;">
+          ${g.sold} / ${g.target_qty} (${pct}%)
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function addGoal(){
+  const title      = document.getElementById("goal-title").value.trim();
+  const product_id = document.getElementById("goal-product").value;
+  const target_qty = parseInt(document.getElementById("goal-qty").value);
+  if(!title){ toast("يرجى إدخال عنوان الهدف","danger"); return; }
+  if(!target_qty||target_qty<1){ toast("يرجى إدخال كمية مستهدفة صحيحة","danger"); return; }
+  const res = await api("POST","/api/goals",{title,product_id,target_qty});
+  if(res.error){ toast(res.error,"danger"); return; }
+  toast("تمت إضافة الهدف بنجاح");
+  document.getElementById("goal-title").value = "";
+  document.getElementById("goal-qty").value   = "";
+  loadGoalsPage();
+}
+
+async function deleteGoal(id){
+  if(!confirm("هل أنت متأكد من حذف هذا الهدف؟")) return;
+  const res = await api("DELETE",`/api/goals/${id}`);
+  if(res.error){ toast(res.error,"danger"); return; }
+  toast(res.message);
+  loadGoalsPage();
+}
+
+// Customers
+async function loadCustomersPage(){
+  const product   = document.getElementById("cust-filter-product")?.value?.trim() || "";
+  const min_qty   = document.getElementById("cust-filter-qty")?.value || "";
+  const date_from = document.getElementById("cust-filter-from")?.value || "";
+  const date_to   = document.getElementById("cust-filter-to")?.value || "";
+
+  const params = new URLSearchParams();
+  if(product)   params.append("product",   product);
+  if(min_qty)   params.append("min_qty",   min_qty);
+  if(date_from) params.append("date_from", date_from);
+  if(date_to)   params.append("date_to",   date_to);
+
+  const customers = await fetch(`/api/customers?${params}`).then(r=>r.json());
+  const tbody = document.getElementById("customers-tbody");
+  const countEl = document.getElementById("cust-count");
+
+  if(!Array.isArray(customers)||!customers.length){
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-5" style="color:var(--muted)">
+      <i class="bi bi-people fs-3 d-block mb-2"></i>
+      لا توجد بيانات عملاء${product||min_qty||date_from||date_to ? " تطابق الفلتر" : " بعد — أضف اسم العميل عند البيع"}.
+    </td></tr>`;
+    if(countEl) countEl.textContent = "";
+    return;
+  }
+
+  if(countEl) countEl.textContent = `${customers.length} عميل`;
+
+  tbody.innerHTML = customers.map((c,i)=>`
+    <tr>
+      <td style="color:var(--muted);font-size:0.82rem;">${i+1}</td>
+      <td class="fw-semibold">${c.customer_name || "—"}</td>
+      <td style="direction:ltr;text-align:right;">${c.customer_phone || "—"}</td>
+      <td><span style="background:var(--navy-bg,#e8f0fe);color:var(--navy);padding:0.15rem 0.6rem;border-radius:20px;font-size:0.8rem;font-weight:600;">${c.purchases}</span></td>
+      <td>${c.total_qty}</td>
+      <td class="fw-bold" style="color:var(--navy)">${fmt(c.total_spent)}</td>
+      <td style="color:var(--muted);font-size:0.82rem;">${c.last_purchase || "—"}</td>
+      <td style="font-size:0.78rem;color:var(--muted);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${c.products||""}">${c.products || "—"}</td>
+    </tr>`).join("");
+}
+
+function clearCustomerFilters(){
+  ["cust-filter-product","cust-filter-qty","cust-filter-from","cust-filter-to"]
+    .forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
+  loadCustomersPage();
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

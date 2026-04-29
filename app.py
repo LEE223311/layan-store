@@ -211,9 +211,34 @@ def _make_chart_png(labels, values, title, chart_type="bar"):
     except Exception:
         return None
 
+def _ensure_fonts():
+    """Download DejaVu fonts to local fonts/ dir if not available on system."""
+    fonts_dir = os.path.join(_BASE, "fonts")
+    regular   = os.path.join(fonts_dir, "DejaVuSans.ttf")
+    bold      = os.path.join(fonts_dir, "DejaVuSans-Bold.ttf")
+    if os.path.exists(regular) and os.path.exists(bold):
+        return
+    try:
+        import urllib.request, tarfile
+        os.makedirs(fonts_dir, exist_ok=True)
+        url = "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2"
+        tmp = "/tmp/dejavu.tar.bz2"
+        urllib.request.urlretrieve(url, tmp)
+        with tarfile.open(tmp, "r:bz2") as tf:
+            for member in tf.getmembers():
+                base = os.path.basename(member.name)
+                if base in ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"):
+                    member.name = base
+                    tf.extract(member, fonts_dir)
+        print("[fonts] DejaVu fonts downloaded successfully")
+    except Exception as e:
+        print(f"[fonts] Font download failed: {e}")
+
+
 def _find_fonts():
     """Return (regular_ttf, bold_ttf). Either may be None."""
     dirs = [
+        os.path.join(_BASE, "fonts"),
         _BASE,
         "/usr/share/fonts/truetype/dejavu",
         "/usr/share/fonts/dejavu",
@@ -1106,6 +1131,7 @@ def clear_records():
 init_db()
 _migrate()
 _ensure_admin()
+_ensure_fonts()
 
 if __name__ == "__main__":
     app.run(debug=True)

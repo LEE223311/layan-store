@@ -1,2 +1,2 @@
-[phases.setup]
-aptPkgs = ["fonts-dejavu-core"]
+[phases.build]
+cmds = ["bash build.sh"]

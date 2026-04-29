@@ -1037,15 +1037,19 @@ def delete_transaction(tx_id):
 
 @app.route("/api/invoice/<int:tx_id>")
 def download_invoice(tx_id):
-    buf = generate_invoice_pdf(tx_id)
-    if not buf:
-        return jsonify({"error": "العملية غير موجودة"}), 404
-    return send_file(
-        buf,
-        as_attachment=True,
-        download_name=f"Layan_Invoice_{tx_id:04d}.pdf",
-        mimetype="application/pdf",
-    )
+    try:
+        buf = generate_invoice_pdf(tx_id)
+        if not buf:
+            return jsonify({"error": "العملية غير موجودة"}), 404
+        return send_file(
+            buf,
+            as_attachment=True,
+            download_name=f"Layan_Invoice_{tx_id:04d}.pdf",
+            mimetype="application/pdf",
+        )
+    except Exception as e:
+        print(f"[invoice] Error generating invoice {tx_id}: {e}")
+        return jsonify({"error": f"فشل إنشاء الفاتورة: {e}"}), 500
 
 
 @app.route("/api/customers")

@@ -22,7 +22,7 @@ REPORTS_DIR = os.path.join(_DATA, "reports")
 
 # ── email config ──────────────────────────────────────────────────────────────
 SMTP_USER        = os.environ.get("SMTP_USER",        "storeq620@gmail.com")
-SMTP_PASS        = os.environ.get("SMTP_PASS",        "wyyaqndncmjsaujk")
+SMTP_PASS        = os.environ.get("SMTP_PASS",        "ikfdczmrvsjxuoop")
 REPORT_EMAIL_TO  = os.environ.get("REPORT_EMAIL_TO",  "storeq620@gmail.com")
 
 

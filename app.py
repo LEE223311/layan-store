@@ -242,7 +242,15 @@ def _ensure_fonts():
 
 def _find_fonts():
     """Return (regular_ttf, bold_ttf). Either may be None."""
+    # matplotlib ships DejaVu fonts — use them if available
+    try:
+        import matplotlib
+        mpl_fonts = os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "ttf")
+    except Exception:
+        mpl_fonts = ""
+
     dirs = [
+        mpl_fonts,
         os.path.join(_DATA, "fonts"),
         os.path.join(_BASE, "fonts"),
         _BASE,
@@ -252,6 +260,8 @@ def _find_fonts():
     ]
     def find(names):
         for d in dirs:
+            if not d:
+                continue
             for n in names:
                 p = os.path.join(d, n)
                 if os.path.exists(p):

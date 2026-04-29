@@ -212,24 +212,29 @@ def _make_chart_png(labels, values, title, chart_type="bar"):
         return None
 
 def _ensure_fonts():
-    """Download DejaVu fonts to local fonts/ dir if not available on system."""
-    fonts_dir = os.path.join(_BASE, "fonts")
+    """Download DejaVu fonts to /data/fonts (persistent volume)."""
+    fonts_dir = os.path.join(_DATA, "fonts")
     regular   = os.path.join(fonts_dir, "DejaVuSans.ttf")
     bold      = os.path.join(fonts_dir, "DejaVuSans-Bold.ttf")
     if os.path.exists(regular) and os.path.exists(bold):
         return
     try:
-        import urllib.request, tarfile
+        import urllib.request, tarfile, tempfile
         os.makedirs(fonts_dir, exist_ok=True)
         url = "https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.tar.bz2"
-        tmp = "/tmp/dejavu.tar.bz2"
-        urllib.request.urlretrieve(url, tmp)
-        with tarfile.open(tmp, "r:bz2") as tf:
+        with tempfile.NamedTemporaryFile(suffix=".tar.bz2", delete=False) as tmp:
+            urllib.request.urlretrieve(url, tmp.name)
+            tmp_path = tmp.name
+        want = {"DejaVuSans.ttf", "DejaVuSans-Bold.ttf"}
+        with tarfile.open(tmp_path, "r:bz2") as tf:
             for member in tf.getmembers():
                 base = os.path.basename(member.name)
-                if base in ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf"):
-                    member.name = base
-                    tf.extract(member, fonts_dir)
+                if base in want:
+                    fobj = tf.extractfile(member)
+                    if fobj:
+                        with open(os.path.join(fonts_dir, base), "wb") as out:
+                            out.write(fobj.read())
+        os.unlink(tmp_path)
         print("[fonts] DejaVu fonts downloaded successfully")
     except Exception as e:
         print(f"[fonts] Font download failed: {e}")
@@ -238,6 +243,7 @@ def _ensure_fonts():
 def _find_fonts():
     """Return (regular_ttf, bold_ttf). Either may be None."""
     dirs = [
+        os.path.join(_DATA, "fonts"),
         os.path.join(_BASE, "fonts"),
         _BASE,
         "/usr/share/fonts/truetype/dejavu",

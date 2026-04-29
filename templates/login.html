@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Layan — تسجيل الدخول</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Cairo', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f3460;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(212,175,55,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 50%);
+    padding: 1.5rem;
+  }
+
+  .login-wrapper {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+  }
+
+  /* Logo / brand */
+  .login-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .login-logo {
+    height: 80px;
+    width: auto;
+    background: white;
+    border-radius: 14px;
+    padding: 6px 16px;
+    object-fit: contain;
+  }
+  .login-logo-fallback {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #d4af37;
+    letter-spacing: 2px;
+  }
+  .login-subtitle {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.82rem;
+  }
+
+  /* Card */
+  .login-card {
+    width: 100%;
+    background: white;
+    border-radius: 18px;
+    padding: 2.2rem 2rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  }
+
+  .login-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #0f3460;
+    margin-bottom: 1.6rem;
+    text-align: center;
+  }
+
+  .form-group {
+    margin-bottom: 1.1rem;
+  }
+  .form-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.4rem;
+  }
+  .input-wrap {
+    position: relative;
+  }
+  .input-wrap .bi {
+    position: absolute;
+    right: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    font-size: 1rem;
+    pointer-events: none;
+  }
+  .form-control {
+    width: 100%;
+    padding: 0.65rem 2.4rem 0.65rem 0.9rem;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.9rem;
+    color: #111;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    direction: ltr;
+    text-align: left;
+  }
+  .form-control:focus {
+    border-color: #0f3460;
+    box-shadow: 0 0 0 3px rgba(15,52,96,0.1);
+  }
+  .form-control::placeholder { color: #aaa; }
+
+  /* Password toggle */
+  .toggle-pw {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9ca3af;
+    font-size: 1rem;
+    padding: 0;
+    transition: color 0.2s;
+  }
+  .toggle-pw:hover { color: #0f3460; }
+
+  /* Error alert */
+  #login-error {
+    background: #fff0f0;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  #login-error.show { display: flex; }
+
+  /* Button */
+  .btn-login {
+    width: 100%;
+    padding: 0.75rem;
+    background: #0f3460;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.4rem;
+  }
+  .btn-login:hover   { background: #1a4a7a; }
+  .btn-login:active  { transform: scale(0.98); }
+  .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  .spinner {
+    width: 1rem; height: 1rem;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  .btn-login.loading .spinner    { display: block; }
+  .btn-login.loading .btn-text   { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .login-footer {
+    color: rgba(255,255,255,0.35);
+    font-size: 0.75rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<div class="login-wrapper">
+
+  <!-- Brand -->
+  <div class="login-brand">
+    <img src="/static/logo.png" alt="Layan" class="login-logo"
+         onerror="this.style.display='none';document.getElementById('logo-text').style.display='block'">
+    <div id="logo-text" class="login-logo-fallback" style="display:none;">LAYAN</div>
+    <div class="login-subtitle">نظام إدارة المتجر</div>
+  </div>
+
+  <!-- Card -->
+  <div class="login-card">
+    <div class="login-title">
+      <i class="bi bi-shield-lock-fill" style="color:#d4af37;margin-left:0.4rem;"></i>
+      تسجيل الدخول
+    </div>
+
+    <div id="login-error">
+      <i class="bi bi-exclamation-circle-fill"></i>
+      <span id="error-text">البريد الإلكتروني أو كلمة المرور غير صحيحة</span>
+    </div>
+
+    <form id="login-form" onsubmit="doLogin(event)">
+      <div class="form-group">
+        <label class="form-label">البريد الإلكتروني</label>
+        <div class="input-wrap">
+          <i class="bi bi-envelope-fill"></i>
+          <input id="email" type="email" class="form-control"
+                 placeholder="storeq620@gmail.com" autocomplete="email" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">كلمة المرور</label>
+        <div class="input-wrap">
+          <i class="bi bi-lock-fill"></i>
+          <input id="password" type="password" class="form-control"
+                 placeholder="••••••••" autocomplete="current-password" required>
+          <button type="button" class="toggle-pw" onclick="togglePw()" tabindex="-1">
+            <i class="bi bi-eye-slash" id="pw-eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login" id="login-btn">
+        <div class="spinner"></div>
+        <span class="btn-text"><i class="bi bi-box-arrow-in-right"></i> دخول</span>
+      </button>
+    </form>
+  </div>
+
+  <div class="login-footer">Layan · نظام إدارة المتجر · جميع الحقوق محفوظة</div>
+
+</div>
+
+<script>
+async function doLogin(e){
+  e.preventDefault();
+  const btn   = document.getElementById("login-btn");
+  const errEl = document.getElementById("login-error");
+  const email    = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  errEl.classList.remove("show");
+  btn.classList.add("loading");
+  btn.disabled = true;
+
+  try {
+    const r = await fetch("/login", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({email, password}),
+    });
+    const data = await r.json();
+    if(r.ok && data.ok){
+      window.location.href = "/";
+    } else {
+      document.getElementById("error-text").textContent =
+        data.error || "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+      errEl.classList.add("show");
+      document.getElementById("password").value = "";
+      document.getElementById("password").focus();
+    }
+  } catch {
+    document.getElementById("error-text").textContent = "خطأ في الاتصال بالخادم، حاول مجدداً";
+    errEl.classList.add("show");
+  } finally {
+    btn.classList.remove("loading");
+    btn.disabled = false;
+  }
+}
+
+function togglePw(){
+  const inp = document.getElementById("password");
+  const eye = document.getElementById("pw-eye");
+  if(inp.type === "password"){
+    inp.type = "text";
+    eye.className = "bi bi-eye";
+  } else {
+    inp.type = "password";
+    eye.className = "bi bi-eye-slash";
+  }
+}
+</script>
+</body>
+</html>

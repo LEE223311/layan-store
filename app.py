@@ -690,40 +690,24 @@ def generate_invoice_pdf(tx_id):
 
 
 def send_email_report(pdf_path, report_dt=None):
-    """Email the PDF report. Silently skips if credentials are not configured."""
-    if not SMTP_USER or not SMTP_PASS:
+    """Email the PDF report via Resend API."""
+    api_key = os.environ.get("RESEND_API_KEY", "")
+    if not api_key:
+        print("[email] RESEND_API_KEY not set — skipping email")
         return
-
-    dt_str = (report_dt or datetime.now()).strftime("%d %B %Y")
-    subject = f"تقرير Layan — {dt_str}"
-
-    msg = MIMEMultipart()
-    msg["From"]    = SMTP_USER
-    msg["To"]      = REPORT_EMAIL_TO
-    msg["Subject"] = subject
-
-    body = (
-        f"السلام عليكم،\n\n"
-        f"مرفق تقرير Layan الدوري بتاريخ {dt_str}.\n\n"
-        f"Al Mustawda bi-weekly report — {dt_str}.\n"
-    )
-    msg.attach(MIMEText(body, "plain", "utf-8"))
-
-    with open(pdf_path, "rb") as f:
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(f.read())
-    encoders.encode_base64(part)
-    part.add_header(
-        "Content-Disposition",
-        f'attachment; filename="{os.path.basename(pdf_path)}"',
-    )
-    msg.attach(part)
-
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.send_message(msg)
+        import resend, base64
+        resend.api_key = api_key
+        dt_str = (report_dt or datetime.now()).strftime("%d %B %Y")
+        with open(pdf_path, "rb") as f:
+            pdf_b64 = base64.b64encode(f.read()).decode()
+        resend.Emails.send({
+            "from": "Layan <onboarding@resend.dev>",
+            "to": [REPORT_EMAIL_TO],
+            "subject": f"تقرير Layan — {dt_str}",
+            "text": f"السلام عليكم،\n\nمرفق تقرير Layan الدوري بتاريخ {dt_str}.",
+            "attachments": [{"filename": os.path.basename(pdf_path), "content": pdf_b64}],
+        })
         print(f"[email] Report sent to {REPORT_EMAIL_TO}")
     except Exception as e:
         print(f"[email] Failed to send report: {e}")
@@ -1125,15 +1109,21 @@ def get_top_customers():
 
 @app.route("/api/test-email")
 def test_email():
+    api_key = os.environ.get("RESEND_API_KEY", "")
+    if not api_key:
+        return jsonify({"ok": False, "error": "RESEND_API_KEY not set in Railway Variables"}), 500
     try:
-        import smtplib
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_USER, REPORT_EMAIL_TO, f"Subject: Layan Test\n\nTest email from Layan.")
+        import resend
+        resend.api_key = api_key
+        resend.Emails.send({
+            "from": "Layan <onboarding@resend.dev>",
+            "to": [REPORT_EMAIL_TO],
+            "subject": "Layan — اختبار البريد",
+            "text": "هذا بريد تجريبي من تطبيق Layan.",
+        })
         return jsonify({"ok": True, "msg": f"Email sent to {REPORT_EMAIL_TO}"})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({"ok": False, "error": str(e)})
 
 
 @app.route("/run-report")

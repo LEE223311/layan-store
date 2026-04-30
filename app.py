@@ -1123,6 +1123,19 @@ def get_top_customers():
     return jsonify([dict(r) for r in rows])
 
 
+@app.route("/api/test-email")
+def test_email():
+    try:
+        import smtplib
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, REPORT_EMAIL_TO, f"Subject: Layan Test\n\nTest email from Layan.")
+        return jsonify({"ok": True, "msg": f"Email sent to {REPORT_EMAIL_TO}"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/run-report")
 def run_report_cron():
     key = request.args.get("key", "")

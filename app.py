@@ -701,7 +701,7 @@ def send_email_report(pdf_path, report_dt=None):
         with open(pdf_path, "rb") as f:
             pdf_b64 = base64.b64encode(f.read()).decode()
         payload = json.dumps({
-            "from": "Layan <onboarding@resend.dev>",
+            "from": "Layan <noreply@lyan1.space>",
             "to": [REPORT_EMAIL_TO],
             "subject": f"تقرير Layan — {dt_str}",
             "text": f"السلام عليكم،\n\nمرفق تقرير Layan الدوري بتاريخ {dt_str}.",
@@ -1120,7 +1120,7 @@ def test_email():
     try:
         import urllib.request, json
         payload = json.dumps({
-            "from": "Layan <onboarding@resend.dev>",
+            "from": "Layan <noreply@lyan1.space>",
             "to": [REPORT_EMAIL_TO],
             "subject": "Layan — اختبار البريد",
             "text": "هذا بريد تجريبي من تطبيق Layan.",

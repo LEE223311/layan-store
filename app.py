@@ -416,7 +416,7 @@ def generate_pdf_report():
     sf(9, bold=True)
     pdf.set_text_color(120, 80, 0)
     pdf.set_xy(15, tc_y + 2)
-    pdf.cell(180, 6, ar("⭐  أفضل عميل خلال الفترة الأخيرة (14 يوم)"), align="C",
+    pdf.cell(180, 6, ar("أفضل عميل خلال الفترة الأخيرة (14 يوم)"), align="C",
              new_x="LMARGIN", new_y="NEXT")
     sf(9)
     if top_customer and top_customer["customer_name"]:
@@ -690,27 +690,32 @@ def generate_invoice_pdf(tx_id):
 
 
 def send_email_report(pdf_path, report_dt=None):
-    """Email the PDF report via Resend API."""
+    """Email the PDF report via Resend HTTP API."""
     api_key = os.environ.get("RESEND_API_KEY", "")
     if not api_key:
         print("[email] RESEND_API_KEY not set — skipping email")
         return
     try:
-        import resend, base64
-        resend.api_key = api_key
+        import urllib.request, json, base64
         dt_str = (report_dt or datetime.now()).strftime("%d %B %Y")
         with open(pdf_path, "rb") as f:
             pdf_b64 = base64.b64encode(f.read()).decode()
-        resend.Emails.send({
+        payload = json.dumps({
             "from": "Layan <onboarding@resend.dev>",
             "to": [REPORT_EMAIL_TO],
             "subject": f"تقرير Layan — {dt_str}",
             "text": f"السلام عليكم،\n\nمرفق تقرير Layan الدوري بتاريخ {dt_str}.",
             "attachments": [{"filename": os.path.basename(pdf_path), "content": pdf_b64}],
-        })
-        print(f"[email] Report sent to {REPORT_EMAIL_TO}")
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            print(f"[email] Sent — status {resp.status}")
     except Exception as e:
-        print(f"[email] Failed to send report: {e}")
+        print(f"[email] Failed: {e}")
 
 
 # ── routes ────────────────────────────────────────────────────────────────────
@@ -1113,15 +1118,21 @@ def test_email():
     if not api_key:
         return jsonify({"ok": False, "error": "RESEND_API_KEY not set in Railway Variables"}), 500
     try:
-        import resend
-        resend.api_key = api_key
-        resend.Emails.send({
+        import urllib.request, json
+        payload = json.dumps({
             "from": "Layan <onboarding@resend.dev>",
             "to": [REPORT_EMAIL_TO],
             "subject": "Layan — اختبار البريد",
             "text": "هذا بريد تجريبي من تطبيق Layan.",
-        })
-        return jsonify({"ok": True, "msg": f"Email sent to {REPORT_EMAIL_TO}"})
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read())
+        return jsonify({"ok": True, "msg": f"Sent to {REPORT_EMAIL_TO}", "id": result.get("id")})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 

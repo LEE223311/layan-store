@@ -537,6 +537,22 @@ body {
       </div>
     </div>
 
+    <div id="goals-reminder" class="d-none mb-4">
+      <div class="card p-4" style="border-right:4px solid var(--gold);">
+        <div class="section-title mb-3"><i class="bi bi-flag-fill" style="color:var(--gold)"></i> تذكير بالأهداف النشطة</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--muted);margin-bottom:0.5rem;">الأهداف التجارية</div>
+            <div id="dash-biz-goals"></div>
+          </div>
+          <div class="col-md-6">
+            <div style="font-size:0.82rem;font-weight:700;color:var(--muted);margin-bottom:0.5rem;">الأهداف الشخصية</div>
+            <div id="dash-personal-goals"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="low-stock-alert" class="low-stock-card d-none mb-4">
       <div class="fw-bold mb-1" style="color:#92400e">
         <i class="bi bi-exclamation-triangle-fill"></i> تنبيه: مخزون منخفض
@@ -654,7 +670,7 @@ body {
           <div class="section-title mb-3">تسجيل مبيعة جديدة</div>
           <div class="mb-3">
             <label class="form-label">اختر المنتج</label>
-            <select id="sale-product" class="form-select" onchange="updateSaleTotal()">
+            <select id="sale-product" class="form-select" onchange="document.getElementById('sale-price').value='';updateSaleTotal()">
               <option value="">— اختر منتجاً —</option>
             </select>
           </div>
@@ -664,6 +680,13 @@ body {
               <button class="qty-btn" onclick="adjustQty(-1)">−</button>
               <input id="sale-qty" class="form-control qty-input" type="number" min="1" value="1" oninput="updateSaleTotal()">
               <button class="qty-btn" onclick="adjustQty(1)">+</button>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">سعر البيع (ر.ع) <span style="color:var(--muted);font-size:0.78rem;">— يمكن تعديله</span></label>
+            <input id="sale-price" class="form-control" type="number" min="0.001" step="0.001" placeholder="0.000" oninput="updateSaleTotal()">
+            <div id="sale-loss-warn" class="d-none mt-2 p-2" style="background:#fff0f0;border:1.5px solid #fecaca;border-radius:8px;font-size:0.82rem;color:#991b1b;">
+              <i class="bi bi-exclamation-triangle-fill"></i> <span id="sale-loss-msg"></span>
             </div>
           </div>
           <div class="mb-3">
@@ -860,7 +883,12 @@ body {
       <div class="card-body p-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div class="section-title mb-0">سجلات العملاء</div>
-          <span id="cust-count" style="font-size:0.82rem;color:var(--muted);"></span>
+          <div style="display:flex;align-items:center;gap:0.75rem;">
+            <span id="cust-count" style="font-size:0.82rem;color:var(--muted);"></span>
+            <a href="/api/customers/export" class="btn btn-outline-navy" style="padding:0.35rem 0.9rem;font-size:0.82rem;">
+              <i class="bi bi-download"></i> تصدير CSV
+            </a>
+          </div>
         </div>
         <div class="table-responsive">
           <table class="table table-hover align-middle">
@@ -901,9 +929,13 @@ body {
               <option value="">— جميع المنتجات —</option>
             </select>
           </div>
-          <div class="mb-4">
+          <div class="mb-3">
             <label class="form-label">الكمية المستهدفة</label>
             <input id="goal-qty" class="form-control" type="number" min="1" placeholder="100" />
+          </div>
+          <div class="mb-4">
+            <label class="form-label">الموعد النهائي <span style="color:var(--muted);font-size:0.78rem;">(اختياري)</span></label>
+            <input id="goal-deadline" class="form-control" type="datetime-local" />
           </div>
           <button class="btn btn-navy w-100 py-2" onclick="addGoal()">
             <i class="bi bi-plus-lg"></i> إضافة الهدف
@@ -919,12 +951,16 @@ body {
         <hr style="border-color:var(--border);margin:1.5rem 0;">
 
         <div class="section-title"><i class="bi bi-person-check" style="color:var(--navy)"></i> الأهداف الشخصية</div>
-        <div class="d-flex gap-2 mb-3">
+        <div class="d-flex gap-2 mb-2">
           <input id="pg-text" class="form-control" placeholder="اكتب هدفاً شخصياً…" style="flex:1;"
               onkeydown="if(event.key==='Enter')addPersonalGoal()" />
           <button class="btn btn-navy" onclick="addPersonalGoal()" style="white-space:nowrap;">
             <i class="bi bi-plus-lg"></i> إضافة
           </button>
+        </div>
+        <div class="mb-3">
+          <input id="pg-deadline" class="form-control" type="datetime-local"
+            style="font-size:0.82rem;" title="الموعد النهائي (اختياري)" />
         </div>
         <div id="personal-goals-list">
           <p class="text-center py-3" style="color:var(--muted);font-size:0.875rem;">لا توجد أهداف شخصية بعد.</p>
@@ -1004,23 +1040,29 @@ function toast(msg, type="success", duration=4000){
   setTimeout(() => d.remove(), duration);
 }
 
-function toastSale(total, tx_id){
+function toastSale(total, tx_id, phone=""){
   const c = document.getElementById("toast-container");
   const d = document.createElement("div");
   d.className = "app-toast toast-success";
-  d.style.cssText = "min-width:340px;justify-content:space-between;gap:1rem;";
+  d.style.cssText = "min-width:340px;justify-content:space-between;gap:0.6rem;flex-wrap:wrap;";
+  const waBtn = phone ? `<a href="https://wa.me/968${phone}?text=${encodeURIComponent('مرحباً، مرفق فاتورتك من Layan 🧾')}" target="_blank"
+     style="background:#25D366;color:white;padding:0.25rem 0.7rem;border-radius:6px;text-decoration:none;font-size:0.8rem;font-weight:600;white-space:nowrap;">
+    <i class="bi bi-whatsapp"></i> واتساب
+  </a>` : "";
   d.innerHTML = `
     <div style="display:flex;align-items:center;gap:0.6rem;">
       <i class="bi bi-check-circle-fill"></i>
-      <span>تمت العملية بنجاح · <strong>${total}</strong></span>
+      <span>تمت العملية · <strong>${total}</strong></span>
     </div>
-    <a href="/api/invoice/${tx_id}" target="_blank"
-       style="background:var(--navy);color:white;padding:0.25rem 0.85rem;border-radius:6px;
-              text-decoration:none;font-size:0.8rem;font-weight:600;white-space:nowrap;flex-shrink:0;">
-      <i class="bi bi-file-earmark-pdf"></i> تنزيل الفاتورة
-    </a>`;
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+      <a href="/api/invoice/${tx_id}" target="_blank"
+         style="background:var(--navy);color:white;padding:0.25rem 0.7rem;border-radius:6px;text-decoration:none;font-size:0.8rem;font-weight:600;white-space:nowrap;">
+        <i class="bi bi-file-earmark-pdf"></i> فاتورة
+      </a>
+      ${waBtn}
+    </div>`;
   c.appendChild(d);
-  setTimeout(() => d.remove(), 12000);
+  setTimeout(() => d.remove(), 14000);
 }
 
 async function api(method, url, body=null){
@@ -1071,23 +1113,27 @@ async function loadDashboard(){
     const bizBox = document.getElementById("dash-biz-goals");
     bizBox.innerHTML = activeBiz.length ? activeBiz.map(g=>{
       const c = g.progress>=50?"var(--gold)":"var(--red)";
-      return `<div style="margin-bottom:0.6rem;">
+      return `<div style="margin-bottom:0.75rem;">
         <div style="display:flex;justify-content:space-between;font-size:0.875rem;margin-bottom:0.2rem;">
           <span class="fw-semibold">${g.title}</span>
           <span style="color:${c};font-weight:700;">${g.progress}%</span>
         </div>
-        <div style="background:#e9ecef;border-radius:20px;height:8px;">
+        <div style="background:#e9ecef;border-radius:20px;height:8px;margin-bottom:0.25rem;">
           <div style="width:${g.progress}%;background:${c};height:100%;border-radius:20px;"></div>
         </div>
+        ${g.deadline ? deadlineBadge(g.deadline) : ""}
       </div>`;
-    }).join("") : '<p style="color:var(--muted);font-size:0.875rem;">كل الأهداف التجارية مكتملة!</p>';
+    }).join("") : '<p style="color:var(--muted);font-size:0.875rem;">لا توجد أهداف تجارية نشطة.</p>';
 
     const pgBox = document.getElementById("dash-personal-goals");
     pgBox.innerHTML = activePg.length ? activePg.map(g=>`
-      <div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0;border-bottom:1px solid var(--border);">
-        <i class="bi bi-circle" style="color:var(--navy);font-size:0.9rem;flex-shrink:0;"></i>
-        <span style="font-size:0.875rem;">${g.text}</span>
-      </div>`).join("") : '<p style="color:var(--muted);font-size:0.875rem;">كل الأهداف الشخصية مكتملة!</p>';
+      <div style="padding:0.35rem 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:0.5rem;">
+          <i class="bi bi-circle" style="color:var(--navy);font-size:0.9rem;flex-shrink:0;"></i>
+          <span style="font-size:0.875rem;">${g.text}</span>
+        </div>
+        ${g.deadline ? deadlineBadge(g.deadline) : ""}
+      </div>`).join("") : '<p style="color:var(--muted);font-size:0.875rem;">لا توجد أهداف شخصية نشطة.</p>';
   } else {
     reminder.classList.add("d-none");
   }
@@ -1191,7 +1237,7 @@ async function loadSalesPage(){
   const prev = sel.value;
   sel.innerHTML = '<option value="">— اختر منتجاً —</option>' +
     products.filter(p=>p.stock>0).map(p=>
-      `<option value="${p.id}" data-price="${p.price}">${p.name} (${p.stock} متوفر — ${fmt(p.price)})</option>`
+      `<option value="${p.id}" data-price="${p.price}" data-cost="${p.cost_price||0}">${p.name} (${p.stock} متوفر — ${fmt(p.price)})</option>`
     ).join("");
   if(prev) sel.value = prev;
   updateSaleTotal();
@@ -1234,34 +1280,54 @@ function adjustQty(delta){
 }
 
 function updateSaleTotal(){
-  const sel = document.getElementById("sale-product");
-  const opt = sel.selectedOptions[0];
-  const qty = parseInt(document.getElementById("sale-qty").value)||1;
-  const box = document.getElementById("sale-total-box");
-  if(!opt||!opt.dataset.price){ box.classList.add("d-none"); return; }
-  document.getElementById("sale-total-val").textContent =
-    (parseFloat(opt.dataset.price)*qty).toFixed(3)+" ر.ع";
+  const sel  = document.getElementById("sale-product");
+  const opt  = sel.selectedOptions[0];
+  const qty  = parseInt(document.getElementById("sale-qty").value)||1;
+  const box  = document.getElementById("sale-total-box");
+  const warn = document.getElementById("sale-loss-warn");
+  if(!opt||!opt.dataset.price){ box.classList.add("d-none"); warn.classList.add("d-none"); return; }
+  const listPrice = parseFloat(opt.dataset.price);
+  const cost      = parseFloat(opt.dataset.cost||0);
+  const priceInp  = document.getElementById("sale-price");
+  if(!priceInp.value) priceInp.value = listPrice.toFixed(3);
+  const salePrice = parseFloat(priceInp.value)||listPrice;
+  document.getElementById("sale-total-val").textContent = (salePrice*qty).toFixed(3)+" ر.ع";
   box.classList.remove("d-none");
+  if(cost > 0 && salePrice < cost){
+    document.getElementById("sale-loss-msg").textContent =
+      `سعر البيع (${salePrice.toFixed(3)}) أقل من سعر التكلفة (${cost.toFixed(3)}) — ستحقق خسارة!`;
+    warn.classList.remove("d-none");
+  } else {
+    warn.classList.add("d-none");
+  }
 }
 
-async function processSale(){
+async function processSale(confirm_loss=false){
   const product_id     = parseInt(document.getElementById("sale-product").value);
   const qty            = parseInt(document.getElementById("sale-qty").value);
   const customer_name  = document.getElementById("sale-customer-name").value.trim();
   const customer_phone = document.getElementById("sale-customer-phone").value.trim();
+  const manual_price   = parseFloat(document.getElementById("sale-price").value) || null;
   if(!product_id){ toast("يرجى اختيار منتج","danger"); return; }
   if(!/^\d{8}$/.test(customer_phone)){
     toast("رقم الهاتف مطلوب ويجب أن يتكون من 8 أرقام بالضبط (نظام عُمان)","danger");
     document.getElementById("sale-customer-phone").focus();
     return;
   }
-  const res = await api("POST","/api/sale",{product_id, qty, customer_name, customer_phone});
+  const res = await api("POST","/api/sale",{product_id, qty, customer_name, customer_phone, manual_price, confirm_loss});
+  if(res.loss_warning){
+    if(confirm(res.message + "\n\nاضغط موافق للمتابعة رغم الخسارة."))
+      return processSale(true);
+    return;
+  }
   if(res.error){ toast(res.error,"danger"); return; }
-  toastSale(fmt(res.total), res.tx_id);
-  document.getElementById("sale-qty").value           = 1;
-  document.getElementById("sale-product").value       = "";
+  toastSale(fmt(res.total), res.tx_id, customer_phone);
+  document.getElementById("sale-qty").value            = 1;
+  document.getElementById("sale-product").value        = "";
+  document.getElementById("sale-price").value          = "";
   document.getElementById("sale-customer-name").value  = "";
   document.getElementById("sale-customer-phone").value = "";
+  document.getElementById("sale-loss-warn").classList.add("d-none");
   updateSaleTotal();
   loadSalesPage();
 }
@@ -1395,12 +1461,14 @@ async function submitClearRecords(){
 
 // Personal goals
 async function addPersonalGoal(){
-  const input = document.getElementById("pg-text");
-  const text  = input.value.trim();
+  const input    = document.getElementById("pg-text");
+  const text     = input.value.trim();
+  const deadline = document.getElementById("pg-deadline").value || null;
   if(!text){ toast("يرجى كتابة نص الهدف","danger"); return; }
-  const res = await api("POST","/api/personal-goals",{text});
+  const res = await api("POST","/api/personal-goals",{text, deadline});
   if(res.error){ toast(res.error,"danger"); return; }
   input.value = "";
+  document.getElementById("pg-deadline").value = "";
   toast("تمت إضافة الهدف الشخصي");
   loadGoalsPage();
 }
@@ -1515,6 +1583,19 @@ async function loadAnalyticsPage(){
   }
 }
 
+// Deadline helper
+function deadlineBadge(dl){
+  if(!dl) return "";
+  const diff = new Date(dl) - new Date();
+  if(diff < 0) return `<span style="font-size:0.75rem;background:#fef2f2;color:var(--red);padding:0.15rem 0.55rem;border-radius:20px;font-weight:700;margin-top:0.25rem;display:inline-block;"><i class="bi bi-alarm-fill"></i> انتهى الموعد</span>`;
+  const days  = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const txt   = days > 0 ? `${days} يوم متبقي` : `${hours} ساعة متبقية`;
+  const color = days <= 1 ? "var(--red)" : days <= 3 ? "#b45309" : "var(--navy)";
+  const bg    = days <= 1 ? "#fef2f2"   : days <= 3 ? "#fffbeb"  : "#e8f0fe";
+  return `<span style="font-size:0.75rem;background:${bg};color:${color};padding:0.15rem 0.55rem;border-radius:20px;font-weight:700;margin-top:0.25rem;display:inline-block;"><i class="bi bi-clock"></i> ${txt}</span>`;
+}
+
 // Goals
 async function loadGoalsPage(){
   const [products, pgGoals] = await Promise.all([
@@ -1535,7 +1616,10 @@ async function loadGoalsPage(){
         <button onclick="togglePersonalGoal(${g.id})" style="background:none;border:none;cursor:pointer;padding:0;font-size:1.1rem;color:${g.achieved?"var(--green)":"var(--muted)"};">
           <i class="bi bi-${g.achieved?"check-circle-fill":"circle"}"></i>
         </button>
-        <span style="flex:1;font-size:0.9rem;${g.achieved?"text-decoration:line-through;color:var(--muted)":""}">${g.text}</span>
+        <div style="flex:1;">
+          <div style="font-size:0.9rem;${g.achieved?"text-decoration:line-through;color:var(--muted)":""}">${g.text}</div>
+          ${g.deadline && !g.achieved ? deadlineBadge(g.deadline) : ""}
+        </div>
         ${g.achieved?'<span style="font-size:0.75rem;font-weight:700;color:var(--green);background:var(--green-bg);padding:0.2rem 0.6rem;border-radius:20px;">محقق ✓</span>':""}
         <button onclick="deletePersonalGoal(${g.id})" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:0.9rem;padding:0;">
           <i class="bi bi-x-lg"></i>
@@ -1555,6 +1639,7 @@ async function loadGoalsPage(){
     const pct   = g.progress;
     const color = pct>=100?"var(--green)":pct>=50?"var(--gold)":"var(--red)";
     const label = pct>=100?"مكتمل ✓":pct>=50?"قيد التنفيذ":"لم يبدأ بعد";
+    const dlBadge = g.deadline ? deadlineBadge(g.deadline) : "";
     return `
     <div class="card mb-3 p-4">
       <div class="d-flex justify-content-between align-items-start mb-2">
@@ -1564,6 +1649,7 @@ async function loadGoalsPage(){
             ${g.product_id ? "منتج محدد" : "جميع المنتجات"} &nbsp;·&nbsp;
             المستهدف: ${g.target_qty} وحدة
           </div>
+          ${dlBadge}
         </div>
         <div class="d-flex align-items-center gap-2">
           <span style="font-size:0.78rem;font-weight:700;color:${color}">${label}</span>
@@ -1589,13 +1675,15 @@ async function addGoal(){
   const title      = document.getElementById("goal-title").value.trim();
   const product_id = document.getElementById("goal-product").value;
   const target_qty = parseInt(document.getElementById("goal-qty").value);
+  const deadline   = document.getElementById("goal-deadline").value || null;
   if(!title){ toast("يرجى إدخال عنوان الهدف","danger"); return; }
   if(!target_qty||target_qty<1){ toast("يرجى إدخال كمية مستهدفة صحيحة","danger"); return; }
-  const res = await api("POST","/api/goals",{title,product_id,target_qty});
+  const res = await api("POST","/api/goals",{title,product_id,target_qty,deadline});
   if(res.error){ toast(res.error,"danger"); return; }
   toast("تمت إضافة الهدف بنجاح");
-  document.getElementById("goal-title").value = "";
-  document.getElementById("goal-qty").value   = "";
+  document.getElementById("goal-title").value    = "";
+  document.getElementById("goal-qty").value      = "";
+  document.getElementById("goal-deadline").value = "";
   loadGoalsPage();
 }
 

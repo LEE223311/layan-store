@@ -24,6 +24,7 @@ REPORTS_DIR = os.path.join(_DATA, "reports")
 SMTP_USER        = os.environ.get("SMTP_USER",        "storeq620@gmail.com")
 SMTP_PASS        = os.environ.get("SMTP_PASS",        "ikfdczmrvsjxuoop")
 REPORT_EMAIL_TO  = os.environ.get("REPORT_EMAIL_TO",  "storeq620@gmail.com")
+WHATSAPP_NUMBER  = os.environ.get("WHATSAPP_NUMBER",  "")
 
 
 # ── database ──────────────────────────────────────────────────────────────────
@@ -104,6 +105,14 @@ def _migrate():
         )
     """)
     con.commit()
+    goal_cols = [r[1] for r in con.execute("PRAGMA table_info(goals)").fetchall()]
+    pg_cols   = [r[1] for r in con.execute("PRAGMA table_info(personal_goals)").fetchall()]
+    if "deadline" not in goal_cols:
+        con.execute("ALTER TABLE goals ADD COLUMN deadline TEXT")
+        con.commit()
+    if "deadline" not in pg_cols:
+        con.execute("ALTER TABLE personal_goals ADD COLUMN deadline TEXT")
+        con.commit()
     con.close()
 
 
@@ -434,98 +443,50 @@ def generate_pdf_report():
         pdf.cell(180, 6, ar("لا توجد بيانات عملاء خلال هذه الفترة"), align="C")
     pdf.ln(8)
 
-    # ── charts ────────────────────────────────────────────────────────────────
-    try:
-        if top_rows:
-            buf = _make_chart_png(
-                [r["product_name"][:18] for r in top_rows],
-                [r["rev"] for r in top_rows],
-                ar("الإيرادات حسب المنتج (ر.ع)"),
-                chart_type="bar",
-            )
-            if buf:
-                if pdf.get_y() > 210: pdf.add_page()
-                pdf.image(buf, x=15, w=180)
-                pdf.ln(4)
-
-        if daily_rows and len(daily_rows) > 1:
-            buf2 = _make_chart_png(
-                [r["day"][5:] for r in daily_rows],
-                [r["rev"] for r in daily_rows],
-                ar("الإيرادات اليومية — آخر 30 يوم (ر.ع)"),
-                chart_type="line",
-            )
-            if buf2:
-                if pdf.get_y() > 210: pdf.add_page()
-                pdf.image(buf2, x=15, w=180)
-                pdf.ln(4)
-    except Exception:
-        pass
-
-    # ── inventory table ──
-    sf(11, bold=True)
-    pdf.set_text_color(*NAVY)
-    pdf.cell(0, 8, ar("المخزون الحالي"), new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(1)
-
-    inv_cols = [(ar("المنتج"), 72), (ar("التصنيف"), 47), (ar("السعر ر.ع"), 33), (ar("المخزون"), 28)]
-    pdf.set_fill_color(*NAVY); pdf.set_text_color(*WHITE)
-    sf(8, bold=True)
-    for h, w in inv_cols:
-        pdf.cell(w, 8, h, border=1, fill=True, align="C")
-    pdf.ln()
-    sf(8)
-
-    for i, p in enumerate(products):
-        if pdf.get_y() > 265:
-            pdf.add_page()
-        pdf.set_fill_color(*LGREY) if i % 2 == 0 else pdf.set_fill_color(*WHITE)
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(inv_cols[0][1], 7, ar(p["name"]),       border=1, fill=True)
-        pdf.cell(inv_cols[1][1], 7, ar(p["category"]),   border=1, fill=True)
-        pdf.cell(inv_cols[2][1], 7, f"{p['price']:.3f}", border=1, fill=True, align="C")
-        pdf.set_text_color(*(RED if p["stock"] < 15 else GREEN))
-        pdf.cell(inv_cols[3][1], 7, str(p["stock"]),     border=1, fill=True, align="C")
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln()
-
-    pdf.ln(6)
-
-    # ── transactions table ──
-    if pdf.get_y() > 230:
-        pdf.add_page()
-    sf(11, bold=True)
-    pdf.set_text_color(*NAVY)
-    pdf.cell(0, 8, ar("سجل المعاملات"), new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(1)
-
-    tx_cols = [("#", 10), (ar("النوع"), 18), (ar("المنتج"), 78), (ar("الكمية"), 14), (ar("الإجمالي ر.ع"), 36), (ar("التاريخ"), 24)]
-
-    def tx_header():
+    # ── top products (compact) ──
+    if top_rows:
+        sf(10, bold=True)
+        pdf.set_text_color(*NAVY)
+        pdf.cell(0, 8, ar("أفضل المنتجات"), new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+        tp_cols = [(ar("المنتج"), 120), (ar("الإيرادات ر.ع"), 60)]
         pdf.set_fill_color(*NAVY); pdf.set_text_color(*WHITE)
-        sf(7, bold=True)
-        for h, w in tx_cols:
+        sf(8, bold=True)
+        for h, w in tp_cols:
             pdf.cell(w, 7, h, border=1, fill=True, align="C")
-        pdf.ln()
+        pdf.ln(); sf(8)
+        for i, r in enumerate(top_rows[:6]):
+            pdf.set_fill_color(*LGREY) if i % 2 == 0 else pdf.set_fill_color(*WHITE)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(tp_cols[0][1], 6, ar(r["product_name"]), border=1, fill=True)
+            pdf.set_text_color(*GREEN)
+            pdf.cell(tp_cols[1][1], 6, f"{r['rev']:.3f}", border=1, fill=True, align="C")
+            pdf.ln()
+        pdf.ln(4)
 
-    tx_header(); sf(7)
-
-    for i, tx in enumerate(txs):
-        if pdf.get_y() > 268:
-            pdf.add_page(); tx_header(); sf(7)
-        pdf.set_fill_color(*LGREY) if i % 2 == 0 else pdf.set_fill_color(*WHITE)
-        is_sale  = tx["type"] == "sale"
-        date_str = str(tx["created_at"])[:10] if tx["created_at"] else "—"
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(tx_cols[0][1], 6, str(tx["id"]),          border=1, fill=True, align="C")
-        pdf.set_text_color(*(GREEN if is_sale else RED))
-        pdf.cell(tx_cols[1][1], 6, ar("بيع") if is_sale else ar("مرفوض"), border=1, fill=True, align="C")
-        pdf.set_text_color(0, 0, 0)
-        pdf.cell(tx_cols[2][1], 6, ar(tx["product_name"]), border=1, fill=True)
-        pdf.cell(tx_cols[3][1], 6, str(tx["qty"]),         border=1, fill=True, align="C")
-        pdf.cell(tx_cols[4][1], 6, f"{tx['total']:.3f}",   border=1, fill=True, align="C")
-        pdf.cell(tx_cols[5][1], 6, date_str,                border=1, fill=True, align="C")
-        pdf.ln()
+    # ── inventory (compact, low stock only) ──
+    low_stock = [p for p in products if p["stock"] < 15]
+    if low_stock:
+        sf(10, bold=True)
+        pdf.set_text_color(*RED)
+        pdf.cell(0, 8, ar("تحذير — منتجات مخزونها منخفض"), new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+        inv_cols = [(ar("المنتج"), 100), (ar("المخزون"), 40), (ar("السعر ر.ع"), 40)]
+        pdf.set_fill_color(*NAVY); pdf.set_text_color(*WHITE)
+        sf(8, bold=True)
+        for h, w in inv_cols:
+            pdf.cell(w, 7, h, border=1, fill=True, align="C")
+        pdf.ln(); sf(8)
+        for i, p in enumerate(low_stock[:8]):
+            pdf.set_fill_color((255,240,240)) if i % 2 == 0 else pdf.set_fill_color(*WHITE)
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(inv_cols[0][1], 6, ar(p["name"]), border=1, fill=True)
+            pdf.set_text_color(*RED)
+            pdf.cell(inv_cols[1][1], 6, str(p["stock"]), border=1, fill=True, align="C")
+            pdf.set_text_color(0, 0, 0)
+            pdf.cell(inv_cols[2][1], 6, f"{p['price']:.3f}", border=1, fill=True, align="C")
+            pdf.ln()
+        pdf.ln(4)
 
     # ── footer ──
     pdf.set_y(-14)
@@ -587,15 +548,14 @@ def generate_invoice_pdf(tx_id):
     pdf.rect(0, 44, 210, 3, "F")
 
     if os.path.isfile(logo_path):
-        pdf.image(logo_path, x=8, y=6, h=30)
+        pdf.image(logo_path, x=75, y=5, h=32)
 
-    sf(22, bold=True)
-    pdf.set_text_color(*GOLD)
-    pdf.set_y(8)
-    pdf.cell(0, 12, "Layan", align="C", new_x="LMARGIN", new_y="NEXT")
     sf(9)
     pdf.set_text_color(200, 210, 230)
-    pdf.cell(0, 6, ar("استيراد وتصدير"), align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_y(39)
+    wa_line = ar(f"واتساب: {WHATSAPP_NUMBER}") if WHATSAPP_NUMBER else ""
+    if wa_line:
+        pdf.cell(0, 5, wa_line, align="C", new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_text_color(0, 0, 0)
     pdf.set_y(56)
@@ -676,12 +636,31 @@ def generate_invoice_pdf(tx_id):
              ar("يحق للعميل إرجاع المنتج خلال 7 أيام من تاريخ الشراء بحالته الأصلية مع الاحتفاظ بالفاتورة."),
              align="C")
 
+    # ── signature area ──
+    pdf.ln(6)
+    sig_y = pdf.get_y()
+    if sig_y < 230:
+        pdf.set_fill_color(252, 252, 252)
+        pdf.set_draw_color(210, 210, 210)
+        pdf.rect(15, sig_y, 180, 24, "FD")
+        sf(8, bold=True)
+        pdf.set_text_color(80, 80, 80)
+        pdf.set_xy(15, sig_y + 3)
+        pdf.cell(90, 5, ar("توقيع العميل"), align="C")
+        pdf.cell(90, 5, ar("توقيع المسؤول"), align="C", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_draw_color(160, 160, 160)
+        pdf.line(25, sig_y + 18, 95, sig_y + 18)
+        pdf.line(115, sig_y + 18, 185, sig_y + 18)
+
     # ── footer ──
     pdf.set_y(-14)
     sf(7)
     pdf.set_text_color(160, 160, 160)
     now = datetime.now()
-    pdf.cell(0, 6, ar(f"Layan  ·  استيراد وتصدير  ·  {now.strftime('%Y-%m-%d')}"), align="C")
+    footer = f"Layan  ·  {now.strftime('%Y-%m-%d')}"
+    if WHATSAPP_NUMBER:
+        footer += f"  ·  {WHATSAPP_NUMBER}"
+    pdf.cell(0, 6, ar(footer), align="C")
 
     buf = io.BytesIO()
     pdf.output(buf)
@@ -790,6 +769,8 @@ def make_sale():
         return jsonify({"error": "يجب أن تكون الكمية واحدة على الأقل"}), 400
     customer_name  = (data.get("customer_name")  or "").strip()
     customer_phone = (data.get("customer_phone") or "").strip()
+    manual_price   = data.get("manual_price")
+    confirm_loss   = data.get("confirm_loss", False)
     if not customer_phone.isdigit() or len(customer_phone) != 8:
         return jsonify({"error": "رقم الهاتف مطلوب ويجب أن يتكون من 8 أرقام (نظام عُمان)"}), 400
     con = get_db()
@@ -798,7 +779,22 @@ def make_sale():
         con.close(); return jsonify({"error": "المنتج غير موجود"}), 404
     if qty > product["stock"]:
         con.close(); return jsonify({"error": f"المخزون غير كافٍ! المتاح فقط {product['stock']} وحدات"}), 400
-    total      = round(product["price"]      * qty, 3)
+    if manual_price is not None:
+        try:
+            unit_price = float(manual_price)
+        except (ValueError, TypeError):
+            con.close(); return jsonify({"error": "سعر البيع غير صحيح"}), 400
+        if unit_price <= 0:
+            con.close(); return jsonify({"error": "سعر البيع يجب أن يكون أكبر من صفر"}), 400
+        if unit_price < product["cost_price"] and not confirm_loss:
+            con.close()
+            return jsonify({
+                "loss_warning": True,
+                "message": f"سعر البيع ({unit_price:.3f} ر.ع) أقل من سعر التكلفة ({product['cost_price']:.3f} ر.ع). هل أنت متأكد؟"
+            }), 200
+    else:
+        unit_price = product["price"]
+    total      = round(unit_price   * qty, 3)
     cost_total = round(product["cost_price"] * qty, 3)
     cur = con.execute(
         "INSERT INTO transactions (product_id, product_name, qty, total, cost_total, type, customer_name, customer_phone) "
@@ -807,7 +803,7 @@ def make_sale():
     tx_id = cur.lastrowid
     con.execute("UPDATE products SET stock = stock - ? WHERE id=?", (qty, product_id))
     con.commit(); con.close()
-    return jsonify({"message": "تمت عملية البيع!", "total": total, "tx_id": tx_id})
+    return jsonify({"message": "تمت عملية البيع!", "total": total, "tx_id": tx_id, "customer_phone": customer_phone})
 
 
 @app.route("/api/products/<int:product_id>", methods=["DELETE"])
@@ -890,15 +886,25 @@ def add_goal():
     if product_id:
         try: product_id = int(product_id)
         except ValueError: product_id = None
+    deadline = (data.get("deadline") or "").strip() or None
     con = get_db()
     cur = con.execute(
-        "INSERT INTO goals (title, product_id, target_qty) VALUES (?,?,?)",
-        (title, product_id, target_qty))
+        "INSERT INTO goals (title, product_id, target_qty, deadline) VALUES (?,?,?,?)",
+        (title, product_id, target_qty, deadline))
     con.commit()
     goal = dict(con.execute("SELECT * FROM goals WHERE id=?", (cur.lastrowid,)).fetchone())
     goal["sold"] = 0; goal["progress"] = 0
     con.close()
     return jsonify(goal), 201
+
+
+@app.route("/api/goals/active")
+def get_active_goals():
+    con = get_db()
+    goals = con.execute("SELECT * FROM goals WHERE deadline IS NOT NULL ORDER BY deadline ASC LIMIT 5").fetchall()
+    pg    = con.execute("SELECT * FROM personal_goals WHERE achieved=0 AND deadline IS NOT NULL ORDER BY deadline ASC LIMIT 5").fetchall()
+    con.close()
+    return jsonify({"goals": [dict(g) for g in goals], "personal": [dict(g) for g in pg]})
 
 
 @app.route("/api/goals/<int:goal_id>", methods=["DELETE"])
@@ -965,8 +971,9 @@ def add_personal_goal():
     text = (data.get("text") or "").strip()
     if not text:
         return jsonify({"error": "يرجى إدخال نص الهدف"}), 400
+    deadline = (data.get("deadline") or "").strip() or None
     con = get_db()
-    cur = con.execute("INSERT INTO personal_goals (text) VALUES (?)", (text,))
+    cur = con.execute("INSERT INTO personal_goals (text, deadline) VALUES (?,?)", (text, deadline))
     con.commit()
     goal = dict(con.execute(
         "SELECT * FROM personal_goals WHERE id=?", (cur.lastrowid,)).fetchone())
@@ -1092,6 +1099,38 @@ def get_customers():
     rows = con.execute(sql, params).fetchall()
     con.close()
     return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/customers/export")
+def export_customers():
+    import csv, io as _io
+    con  = get_db()
+    rows = con.execute("""
+        SELECT customer_name, customer_phone,
+               COUNT(*)                      AS purchases,
+               SUM(qty)                      AS total_qty,
+               ROUND(SUM(total),3)           AS total_spent,
+               MAX(DATE(created_at))         AS last_purchase,
+               GROUP_CONCAT(DISTINCT product_name) AS products,
+               SUM(CASE WHEN returned=1 THEN 1 ELSE 0 END) AS rejected_count
+        FROM transactions
+        WHERE type='sale' AND customer_name != ''
+        GROUP BY customer_name, customer_phone
+        ORDER BY total_spent DESC
+    """).fetchall()
+    con.close()
+    out = _io.StringIO()
+    w   = csv.writer(out)
+    w.writerow(["الاسم","الهاتف","الطلبات","الكمية","المبلغ (ر.ع)","آخر شراء","المنتجات","شحنات مرفوضة"])
+    for r in rows:
+        w.writerow([r["customer_name"], r["customer_phone"], r["purchases"],
+                    r["total_qty"], r["total_spent"], r["last_purchase"],
+                    r["products"], r["rejected_count"]])
+    out.seek(0)
+    return send_file(
+        io.BytesIO(out.getvalue().encode("utf-8-sig")),
+        as_attachment=True, download_name="customers_layan.csv", mimetype="text/csv"
+    )
 
 
 @app.route("/api/customers/top")

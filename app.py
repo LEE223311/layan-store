@@ -669,30 +669,34 @@ def generate_invoice_pdf(tx_id):
 
 
 def send_email_report(pdf_path, report_dt=None):
-    """Email the PDF report via Resend HTTP API."""
-    api_key = os.environ.get("RESEND_API_KEY", "")
-    if not api_key:
-        print("[email] RESEND_API_KEY not set — skipping email")
+    """Email the PDF report via Gmail SMTP."""
+    gmail_user = os.environ.get("GMAIL_USER", "")
+    gmail_pass = os.environ.get("GMAIL_PASS", "")
+    if not gmail_user or not gmail_pass:
+        print("[email] GMAIL_USER or GMAIL_PASS not set — skipping email")
         return
     try:
-        import urllib.request, json, base64
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from email.mime.base import MIMEBase
+        from email import encoders
         dt_str = (report_dt or datetime.now()).strftime("%d %B %Y")
+        msg = MIMEMultipart()
+        msg["From"] = gmail_user
+        msg["To"] = REPORT_EMAIL_TO
+        msg["Subject"] = f"تقرير Layan — {dt_str}"
+        msg.attach(MIMEText(f"السلام عليكم،\n\nمرفق تقرير Layan الدوري بتاريخ {dt_str}.", "plain", "utf-8"))
         with open(pdf_path, "rb") as f:
-            pdf_b64 = base64.b64encode(f.read()).decode()
-        payload = json.dumps({
-            "from": "Layan <noreply@lyan1.space>",
-            "to": [REPORT_EMAIL_TO],
-            "subject": f"تقرير Layan — {dt_str}",
-            "text": f"السلام عليكم،\n\nمرفق تقرير Layan الدوري بتاريخ {dt_str}.",
-            "attachments": [{"filename": os.path.basename(pdf_path), "content": pdf_b64}],
-        }).encode("utf-8")
-        req = urllib.request.Request(
-            "https://api.resend.com/emails",
-            data=payload,
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            print(f"[email] Sent — status {resp.status}")
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(f.read())
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(pdf_path)}")
+        msg.attach(part)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(msg)
+        print(f"[email] Sent to {REPORT_EMAIL_TO}")
     except Exception as e:
         print(f"[email] Failed: {e}")
 
@@ -1153,30 +1157,23 @@ def get_top_customers():
 
 @app.route("/api/test-email")
 def test_email():
-    api_key = os.environ.get("RESEND_API_KEY", "")
-    if not api_key:
-        return jsonify({"ok": False, "error": "RESEND_API_KEY not set in Railway Variables"}), 500
+    gmail_user = os.environ.get("GMAIL_USER", "")
+    gmail_pass = os.environ.get("GMAIL_PASS", "")
+    if not gmail_user or not gmail_pass:
+        return jsonify({"ok": False, "error": "GMAIL_USER or GMAIL_PASS not set"}), 500
     try:
-        import urllib.request, json
-        payload = json.dumps({
-            "from": "Layan <noreply@lyan1.space>",
-            "to": [REPORT_EMAIL_TO],
-            "subject": "Layan — اختبار البريد",
-            "text": "هذا بريد تجريبي من تطبيق Layan.",
-        }).encode("utf-8")
-        req = urllib.request.Request(
-            "https://api.resend.com/emails",
-            data=payload,
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read())
-        return jsonify({"ok": True, "msg": f"Sent to {REPORT_EMAIL_TO}", "id": result.get("id")})
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace")
-        return jsonify({"ok": False, "error": str(e), "details": body, "key_prefix": api_key[:8] if api_key else "empty"})
+        import smtplib
+        from email.mime.text import MIMEText
+        msg = MIMEText("هذا بريد تجريبي من تطبيق Layan.", "plain", "utf-8")
+        msg["From"] = gmail_user
+        msg["To"] = REPORT_EMAIL_TO
+        msg["Subject"] = "Layan — اختبار البريد"
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(msg)
+        return jsonify({"ok": True, "msg": f"Sent to {REPORT_EMAIL_TO}"})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e), "key_prefix": api_key[:8] if api_key else "empty"})
+        return jsonify({"ok": False, "error": str(e)})
 
 
 @app.route("/run-report")

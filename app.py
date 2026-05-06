@@ -1172,8 +1172,11 @@ def test_email():
         with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read())
         return jsonify({"ok": True, "msg": f"Sent to {REPORT_EMAIL_TO}", "id": result.get("id")})
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        return jsonify({"ok": False, "error": str(e), "details": body, "key_prefix": api_key[:8] if api_key else "empty"})
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)})
+        return jsonify({"ok": False, "error": str(e), "key_prefix": api_key[:8] if api_key else "empty"})
 
 
 @app.route("/run-report")

@@ -699,6 +699,40 @@ def send_email_report(pdf_path, report_dt=None):
         print(f"[email] Sent to {REPORT_EMAIL_TO}")
     except Exception as e:
         print(f"[email] Failed: {e}")
+    send_whatsapp_report(pdf_path, report_dt)
+
+
+def send_whatsapp_report(pdf_path, report_dt=None):
+    """Send PDF report via Green API WhatsApp."""
+    instance_id = os.environ.get("GREENAPI_INSTANCE", "")
+    api_token   = os.environ.get("GREENAPI_TOKEN", "")
+    wa_number   = os.environ.get("WHATSAPP_NUMBER", "")
+    if not instance_id or not api_token or not wa_number:
+        print("[whatsapp] Green API credentials not set — skipping")
+        return
+    try:
+        import urllib.request, json
+        dt_str  = (report_dt or datetime.now()).strftime("%d %B %Y")
+        chat_id = f"{wa_number}@c.us"
+        url     = f"https://api.green-api.com/waInstance{instance_id}/sendFileByUpload/{api_token}"
+        boundary = "----FormBoundary7MA4YWxkTrZu0gW"
+        with open(pdf_path, "rb") as f:
+            file_data = f.read()
+        filename = os.path.basename(pdf_path)
+        body  = f"--{boundary}\r\n"
+        body += f'Content-Disposition: form-data; name="chatId"\r\n\r\n{chat_id}\r\n'
+        body += f"--{boundary}\r\n"
+        body += f'Content-Disposition: form-data; name="caption"\r\n\r\nتقرير Layan — {dt_str}\r\n'
+        body += f"--{boundary}\r\n"
+        body += f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+        body += "Content-Type: application/pdf\r\n\r\n"
+        body_bytes = body.encode("utf-8") + file_data + f"\r\n--{boundary}--\r\n".encode()
+        req = urllib.request.Request(url, data=body_bytes, method="POST")
+        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            print(f"[whatsapp] Sent — {resp.read().decode()}")
+    except Exception as e:
+        print(f"[whatsapp] Failed: {e}")
 
 
 # ── routes ────────────────────────────────────────────────────────────────────

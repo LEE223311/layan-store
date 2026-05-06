@@ -196,55 +196,82 @@ def forgot_password():
     if not user:
         con.close()
         return jsonify({"ok": True})
-    import secrets
-    token   = secrets.token_urlsafe(32)
-    expires = datetime.now() + timedelta(hours=1)
+    import random
+    otp     = str(random.randint(100000, 999999))
+    expires = datetime.now() + timedelta(minutes=10)
     con.execute("DELETE FROM password_resets WHERE email=?", (email,))
     con.execute("INSERT INTO password_resets (email, token, expires_at) VALUES (?,?,?)",
-                (email, token, expires.strftime("%Y-%m-%d %H:%M:%S")))
+                (email, otp, expires.strftime("%Y-%m-%d %H:%M:%S")))
     con.commit()
     con.close()
-    reset_link = request.host_url.rstrip("/") + f"/reset-password/{token}"
     gmail_user = os.environ.get("GMAIL_USER", "")
     gmail_pass = os.environ.get("GMAIL_PASS", "")
     try:
         import smtplib
         from email.mime.text import MIMEText
-        msg = MIMEText(f"لإعادة تعيين كلمة المرور اضغط على الرابط:\n\n{reset_link}\n\nالرابط صالح لمدة ساعة واحدة.", "plain", "utf-8")
+        body = f"""السلام عليكم،
+
+رمز التحقق الخاص بك لإعادة تعيين كلمة المرور:
+
+  {otp}
+
+هذا الرمز صالح لمدة 10 دقائق فقط.
+إذا لم تطلب إعادة تعيين كلمة المرور، تجاهل هذا البريد."""
+        msg = MIMEText(body, "plain", "utf-8")
         msg["From"]    = gmail_user
         msg["To"]      = email
-        msg["Subject"] = "Layan — إعادة تعيين كلمة المرور"
+        msg["Subject"] = "Layan — رمز التحقق OTP"
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
             server.login(gmail_user, gmail_pass)
             server.send_message(msg)
     except Exception as e:
-        print(f"[reset email] {e}")
+        print(f"[otp email] {e}")
+    session["otp_email"] = email
     return jsonify({"ok": True})
 
 
-@app.route("/reset-password/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    con   = get_db()
-    row   = con.execute(
-        "SELECT * FROM password_resets WHERE token=? AND used=0 AND expires_at > datetime('now')",
-        (token,)
-    ).fetchone()
-    if not row:
-        con.close()
-        return render_template("reset_password.html", token=token, expired=True)
+@app.route("/verify-otp", methods=["GET", "POST"])
+def verify_otp():
     if request.method == "GET":
-        con.close()
-        return render_template("reset_password.html", token=token, expired=False)
+        if "otp_email" not in session:
+            return redirect(url_for("forgot_password"))
+        return render_template("verify_otp.html")
+    data  = request.get_json(silent=True) or {}
+    otp   = (data.get("otp") or "").strip()
+    email = session.get("otp_email", "")
+    if not email:
+        return jsonify({"ok": False, "error": "انتهت الجلسة، أعد المحاولة"}), 400
+    con = get_db()
+    row = con.execute(
+        "SELECT * FROM password_resets WHERE email=? AND token=? AND used=0 AND expires_at > datetime('now')",
+        (email, otp)
+    ).fetchone()
+    con.close()
+    if not row:
+        return jsonify({"ok": False, "error": "الرمز غير صحيح أو منتهي الصلاحية"}), 400
+    session["otp_verified"] = True
+    return jsonify({"ok": True})
+
+
+@app.route("/reset-password", methods=["GET", "POST"])
+def reset_password():
+    if "otp_email" not in session or not session.get("otp_verified"):
+        return redirect(url_for("forgot_password"))
+    if request.method == "GET":
+        return render_template("reset_password.html")
     data   = request.get_json(silent=True) or {}
     new_pw = data.get("new_password", "")
     if len(new_pw) < 6:
-        con.close()
         return jsonify({"ok": False, "error": "كلمة المرور يجب أن تكون 6 أحرف على الأقل"}), 400
+    email = session["otp_email"]
+    con   = get_db()
     con.execute("UPDATE users SET password=? WHERE email=?",
-                (generate_password_hash(new_pw), row["email"]))
-    con.execute("UPDATE password_resets SET used=1 WHERE token=?", (token,))
+                (generate_password_hash(new_pw), email))
+    con.execute("UPDATE password_resets SET used=1 WHERE email=?", (email,))
     con.commit()
     con.close()
+    session.pop("otp_email", None)
+    session.pop("otp_verified", None)
     return jsonify({"ok": True})
 
 

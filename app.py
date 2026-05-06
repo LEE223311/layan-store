@@ -1155,6 +1155,28 @@ def get_top_customers():
     return jsonify([dict(r) for r in rows])
 
 
+@app.route("/api/change-password", methods=["POST"])
+@login_required
+def change_password():
+    data        = request.get_json(silent=True) or {}
+    current_pw  = data.get("current_password", "")
+    new_pw      = data.get("new_password", "")
+    if not current_pw or not new_pw:
+        return jsonify({"ok": False, "error": "جميع الحقول مطلوبة"}), 400
+    if len(new_pw) < 6:
+        return jsonify({"ok": False, "error": "كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل"}), 400
+    con  = get_db()
+    user = con.execute("SELECT * FROM users WHERE id=?", (session["user_id"],)).fetchone()
+    if not user or not check_password_hash(user["password"], current_pw):
+        con.close()
+        return jsonify({"ok": False, "error": "كلمة المرور الحالية غير صحيحة"}), 403
+    con.execute("UPDATE users SET password=? WHERE id=?",
+                (generate_password_hash(new_pw), session["user_id"]))
+    con.commit()
+    con.close()
+    return jsonify({"ok": True})
+
+
 @app.route("/api/test-email")
 def test_email():
     gmail_user = os.environ.get("GMAIL_USER", "")

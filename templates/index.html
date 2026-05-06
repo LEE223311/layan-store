@@ -455,6 +455,12 @@ body {
     </div>
     <div style="display:flex;align-items:center;gap:1rem;">
       <div class="header-clock" id="header-clock"></div>
+      <button onclick="openChangePwModal()" title="تغيير كلمة المرور"
+         style="background:none;cursor:pointer;color:rgba(255,255,255,0.6);font-size:0.82rem;text-decoration:none;display:flex;align-items:center;gap:0.35rem;padding:0.3rem 0.7rem;border:1px solid rgba(255,255,255,0.2);border-radius:6px;transition:all 0.2s;font-family:inherit;"
+         onmouseover="this.style.color='white';this.style.borderColor='rgba(255,255,255,0.5)'"
+         onmouseout="this.style.color='rgba(255,255,255,0.6)';this.style.borderColor='rgba(255,255,255,0.2)'">
+        <i class="bi bi-key-fill"></i> كلمة المرور
+      </button>
       <a href="/logout" title="تسجيل الخروج"
          style="color:rgba(255,255,255,0.6);font-size:0.82rem;text-decoration:none;display:flex;align-items:center;gap:0.35rem;padding:0.3rem 0.7rem;border:1px solid rgba(255,255,255,0.2);border-radius:6px;transition:all 0.2s;"
          onmouseover="this.style.color='white';this.style.borderColor='rgba(255,255,255,0.5)'"
@@ -1743,6 +1749,63 @@ function clearCustomerFilters(){
 }
 
 loadDashboard();
+</script>
+
+<!-- Change Password Modal -->
+<div id="changePwModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:2rem;width:100%;max-width:380px;margin:1rem;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+      <h3 style="font-size:1.1rem;font-weight:700;color:#0f3460;"><i class="bi bi-key-fill" style="color:#d4af37;margin-left:0.4rem;"></i>تغيير كلمة المرور</h3>
+      <button onclick="closeChangePwModal()" style="background:none;border:none;font-size:1.3rem;cursor:pointer;color:#9ca3af;">&times;</button>
+    </div>
+    <div id="changePwError" style="display:none;background:#fff0f0;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:0.6rem 0.8rem;font-size:0.85rem;margin-bottom:1rem;"></div>
+    <div id="changePwSuccess" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:8px;padding:0.6rem 0.8rem;font-size:0.85rem;margin-bottom:1rem;"></div>
+    <div style="margin-bottom:0.9rem;">
+      <label style="display:block;font-size:0.85rem;font-weight:600;color:#374151;margin-bottom:0.4rem;">كلمة المرور الحالية</label>
+      <input id="cpwCurrent" type="password" style="width:100%;padding:0.6rem 0.8rem;border:1.5px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:0.9rem;outline:none;" placeholder="••••••••">
+    </div>
+    <div style="margin-bottom:0.9rem;">
+      <label style="display:block;font-size:0.85rem;font-weight:600;color:#374151;margin-bottom:0.4rem;">كلمة المرور الجديدة</label>
+      <input id="cpwNew" type="password" style="width:100%;padding:0.6rem 0.8rem;border:1.5px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:0.9rem;outline:none;" placeholder="6 أحرف على الأقل">
+    </div>
+    <div style="margin-bottom:1.2rem;">
+      <label style="display:block;font-size:0.85rem;font-weight:600;color:#374151;margin-bottom:0.4rem;">تأكيد كلمة المرور الجديدة</label>
+      <input id="cpwConfirm" type="password" style="width:100%;padding:0.6rem 0.8rem;border:1.5px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:0.9rem;outline:none;" placeholder="••••••••">
+    </div>
+    <button onclick="submitChangePw()" id="cpwBtn" style="width:100%;padding:0.75rem;background:#0f3460;color:white;border:none;border-radius:8px;font-family:inherit;font-size:0.95rem;font-weight:700;cursor:pointer;">
+      حفظ كلمة المرور
+    </button>
+  </div>
+</div>
+<script>
+function openChangePwModal(){
+  document.getElementById('changePwModal').style.display='flex';
+  document.getElementById('cpwCurrent').value='';
+  document.getElementById('cpwNew').value='';
+  document.getElementById('cpwConfirm').value='';
+  document.getElementById('changePwError').style.display='none';
+  document.getElementById('changePwSuccess').style.display='none';
+}
+function closeChangePwModal(){
+  document.getElementById('changePwModal').style.display='none';
+}
+async function submitChangePw(){
+  const current=document.getElementById('cpwCurrent').value;
+  const nw=document.getElementById('cpwNew').value;
+  const confirm=document.getElementById('cpwConfirm').value;
+  const errEl=document.getElementById('changePwError');
+  const okEl=document.getElementById('changePwSuccess');
+  errEl.style.display='none'; okEl.style.display='none';
+  if(!current||!nw||!confirm){errEl.textContent='جميع الحقول مطلوبة';errEl.style.display='block';return;}
+  if(nw!==confirm){errEl.textContent='كلمة المرور الجديدة وتأكيدها غير متطابقتين';errEl.style.display='block';return;}
+  const btn=document.getElementById('cpwBtn');
+  btn.disabled=true; btn.textContent='جاري الحفظ...';
+  const r=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current_password:current,new_password:nw})});
+  const d=await r.json();
+  btn.disabled=false; btn.textContent='حفظ كلمة المرور';
+  if(d.ok){okEl.textContent='تم تغيير كلمة المرور بنجاح';okEl.style.display='block';setTimeout(closeChangePwModal,1500);}
+  else{errEl.textContent=d.error||'حدث خطأ';errEl.style.display='block';}
+}
 </script>
 </body>
 </html>

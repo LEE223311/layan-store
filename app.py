@@ -1156,8 +1156,9 @@ def get_top_customers():
 
 
 @app.route("/api/change-password", methods=["POST"])
-@login_required
 def change_password():
+    if "user_id" not in session:
+        return jsonify({"ok": False, "error": "غير مصرح", "redirect": "/login"}), 401
     data        = request.get_json(silent=True) or {}
     current_pw  = data.get("current_password", "")
     new_pw      = data.get("new_password", "")

@@ -7,7 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, send_file, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -113,6 +113,16 @@ def _migrate():
     if "deadline" not in pg_cols:
         con.execute("ALTER TABLE personal_goals ADD COLUMN deadline TEXT")
         con.commit()
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            email      TEXT    NOT NULL,
+            token      TEXT    NOT NULL UNIQUE,
+            expires_at DATETIME NOT NULL,
+            used       INTEGER NOT NULL DEFAULT 0
+        )
+    """)
+    con.commit()
     con.close()
 
 
@@ -173,6 +183,69 @@ def login_page():
 def logout():
     session.clear()
     return redirect(url_for("login_page"))
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "GET":
+        return render_template("forgot_password.html")
+    data  = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    con   = get_db()
+    user  = con.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+    if not user:
+        con.close()
+        return jsonify({"ok": True})
+    import secrets
+    token   = secrets.token_urlsafe(32)
+    expires = datetime.now() + timedelta(hours=1)
+    con.execute("DELETE FROM password_resets WHERE email=?", (email,))
+    con.execute("INSERT INTO password_resets (email, token, expires_at) VALUES (?,?,?)",
+                (email, token, expires.strftime("%Y-%m-%d %H:%M:%S")))
+    con.commit()
+    con.close()
+    reset_link = request.host_url.rstrip("/") + f"/reset-password/{token}"
+    gmail_user = os.environ.get("GMAIL_USER", "")
+    gmail_pass = os.environ.get("GMAIL_PASS", "")
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        msg = MIMEText(f"لإعادة تعيين كلمة المرور اضغط على الرابط:\n\n{reset_link}\n\nالرابط صالح لمدة ساعة واحدة.", "plain", "utf-8")
+        msg["From"]    = gmail_user
+        msg["To"]      = email
+        msg["Subject"] = "Layan — إعادة تعيين كلمة المرور"
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            server.login(gmail_user, gmail_pass)
+            server.send_message(msg)
+    except Exception as e:
+        print(f"[reset email] {e}")
+    return jsonify({"ok": True})
+
+
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    con   = get_db()
+    row   = con.execute(
+        "SELECT * FROM password_resets WHERE token=? AND used=0 AND expires_at > datetime('now')",
+        (token,)
+    ).fetchone()
+    if not row:
+        con.close()
+        return render_template("reset_password.html", token=token, expired=True)
+    if request.method == "GET":
+        con.close()
+        return render_template("reset_password.html", token=token, expired=False)
+    data   = request.get_json(silent=True) or {}
+    new_pw = data.get("new_password", "")
+    if len(new_pw) < 6:
+        con.close()
+        return jsonify({"ok": False, "error": "كلمة المرور يجب أن تكون 6 أحرف على الأقل"}), 400
+    con.execute("UPDATE users SET password=? WHERE email=?",
+                (generate_password_hash(new_pw), row["email"]))
+    con.execute("UPDATE password_resets SET used=1 WHERE token=?", (token,))
+    con.commit()
+    con.close()
+    return jsonify({"ok": True})
 
 
 # ── PDF report ────────────────────────────────────────────────────────────────

@@ -543,6 +543,32 @@ body {
       </div>
     </div>
 
+    <!-- Deferred Payments Table -->
+    <div id="deferred-section" class="d-none mb-4">
+      <div class="card p-4" style="border-right:4px solid #f59e0b;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="section-title mb-0"><i class="bi bi-clock-history" style="color:#f59e0b;margin-left:0.4rem;"></i> مبيعات مؤجلة الدفع</div>
+          <span id="deferred-count" class="badge" style="background:#f59e0b;color:white;border-radius:20px;padding:0.3rem 0.8rem;font-size:0.82rem;"></span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+            <thead>
+              <tr style="background:#fffbf0;">
+                <th style="padding:0.6rem 0.8rem;text-align:right;border-bottom:2px solid #fde68a;color:#92400e;">العميل</th>
+                <th style="padding:0.6rem 0.8rem;text-align:right;border-bottom:2px solid #fde68a;color:#92400e;">الهاتف</th>
+                <th style="padding:0.6rem 0.8rem;text-align:right;border-bottom:2px solid #fde68a;color:#92400e;">المنتج</th>
+                <th style="padding:0.6rem 0.8rem;text-align:center;border-bottom:2px solid #fde68a;color:#92400e;">الكمية</th>
+                <th style="padding:0.6rem 0.8rem;text-align:center;border-bottom:2px solid #fde68a;color:#92400e;">المبلغ</th>
+                <th style="padding:0.6rem 0.8rem;text-align:center;border-bottom:2px solid #fde68a;color:#92400e;">التاريخ</th>
+                <th style="padding:0.6rem 0.8rem;text-align:center;border-bottom:2px solid #fde68a;color:#92400e;"></th>
+              </tr>
+            </thead>
+            <tbody id="deferred-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div id="goals-reminder" class="d-none mb-4">
       <div class="card p-4" style="border-right:4px solid var(--gold);">
         <div class="section-title mb-3"><i class="bi bi-flag-fill" style="color:var(--gold)"></i> تذكير بالأهداف النشطة</div>
@@ -715,6 +741,12 @@ body {
           <div id="sale-total-box" class="total-preview d-none mb-4">
             <div class="total-label">إجمالي الطلب</div>
             <div class="total-amount" id="sale-total-val">0.000 ر.ع</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.6rem;padding:0.6rem 0.8rem;background:#fffbf0;border:1.5px solid #f59e0b;border-radius:10px;margin-bottom:0.8rem;">
+            <input type="checkbox" id="deferred-check" style="width:18px;height:18px;accent-color:#f59e0b;cursor:pointer;">
+            <label for="deferred-check" style="cursor:pointer;font-size:0.9rem;font-weight:600;color:#92400e;margin:0;">
+              <i class="bi bi-clock-history" style="margin-left:0.3rem;"></i> دفع مؤجل (خصم المخزون بدون احتساب الإيراد)
+            </label>
           </div>
           <button class="btn btn-navy w-100 py-2" style="font-size:1rem;" onclick="processSale()">
             <i class="bi bi-check-lg"></i> تأكيد البيع
@@ -1097,6 +1129,41 @@ function showTab(name){
   if(name==="goals")     loadGoalsPage();
 }
 
+async function loadDeferredTable(){
+  const rows = await api("GET","/api/deferred");
+  const sec  = document.getElementById("deferred-section");
+  const tbody= document.getElementById("deferred-tbody");
+  const cnt  = document.getElementById("deferred-count");
+  if(!rows||!rows.length){ sec.classList.add("d-none"); return; }
+  sec.classList.remove("d-none");
+  cnt.textContent = rows.length + " عملية";
+  tbody.innerHTML = rows.map(r => {
+    const date = r.created_at ? r.created_at.split(" ")[0] : "";
+    const phone = r.customer_phone || "";
+    const waLink = phone ? `<a href="https://wa.me/968${phone}" target="_blank" style="color:#25d366;margin-right:0.4rem;"><i class="bi bi-whatsapp"></i></a>` : "";
+    return `<tr style="border-bottom:1px solid #fde68a;">
+      <td style="padding:0.6rem 0.8rem;">${r.customer_name||'—'}</td>
+      <td style="padding:0.6rem 0.8rem;">${waLink}${phone}</td>
+      <td style="padding:0.6rem 0.8rem;">${r.product_name}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;">${r.qty}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;font-weight:700;color:#0f3460;">${fmt(r.total)} ر.ع</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;color:#6b7280;font-size:0.82rem;">${date}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;">
+        <button onclick="markPaid(${r.id})" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:0.35rem 0.8rem;cursor:pointer;font-family:inherit;font-size:0.82rem;font-weight:600;">
+          <i class="bi bi-check-circle-fill"></i> تم الاستلام
+        </button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+async function markPaid(tx_id){
+  if(!confirm("تأكيد استلام الدفع؟ ستُضاف هذه العملية للمبيعات والأرباح.")) return;
+  const res = await api("POST", `/api/deferred/${tx_id}/mark-paid`);
+  if(res.ok){ toast("تم تسجيل الدفع بنجاح","success"); loadDeferredTable(); loadDashboard(); }
+  else toast(res.error||"حدث خطأ","danger");
+}
+
 // Dashboard
 async function loadDashboard(){
   const [d, bizGoals, pgGoals] = await Promise.all([
@@ -1314,26 +1381,33 @@ async function processSale(confirm_loss=false){
   const customer_name  = document.getElementById("sale-customer-name").value.trim();
   const customer_phone = document.getElementById("sale-customer-phone").value.trim();
   const manual_price   = parseFloat(document.getElementById("sale-price").value) || null;
+  const is_deferred    = document.getElementById("deferred-check").checked;
   if(!product_id){ toast("يرجى اختيار منتج","danger"); return; }
   if(!/^\d{8}$/.test(customer_phone)){
     toast("رقم الهاتف مطلوب ويجب أن يتكون من 8 أرقام بالضبط (نظام عُمان)","danger");
     document.getElementById("sale-customer-phone").focus();
     return;
   }
-  const res = await api("POST","/api/sale",{product_id, qty, customer_name, customer_phone, manual_price, confirm_loss});
+  const res = await api("POST","/api/sale",{product_id, qty, customer_name, customer_phone, manual_price, confirm_loss, is_deferred});
   if(res.loss_warning){
     if(confirm(res.message + "\n\nاضغط موافق للمتابعة رغم الخسارة."))
       return processSale(true);
     return;
   }
   if(res.error){ toast(res.error,"danger"); return; }
-  toastSale(fmt(res.total), res.tx_id, customer_phone);
+  if(is_deferred){
+    toast(`تم تسجيل الدفع المؤجل — ${fmt(res.total)} ر.ع`, "warning");
+    loadDeferredTable();
+  } else {
+    toastSale(fmt(res.total), res.tx_id, customer_phone);
+  }
   document.getElementById("sale-qty").value            = 1;
   document.getElementById("sale-product").value        = "";
   document.getElementById("sale-price").value          = "";
   document.getElementById("sale-customer-name").value  = "";
   document.getElementById("sale-customer-phone").value = "";
   document.getElementById("sale-loss-warn").classList.add("d-none");
+  document.getElementById("deferred-check").checked    = false;
   updateSaleTotal();
   loadSalesPage();
 }
@@ -1749,6 +1823,7 @@ function clearCustomerFilters(){
 }
 
 loadDashboard();
+loadDeferredTable();
 </script>
 
 <!-- Change Password Modal -->

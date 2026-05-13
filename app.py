@@ -113,6 +113,9 @@ def _migrate():
     if "deadline" not in pg_cols:
         con.execute("ALTER TABLE personal_goals ADD COLUMN deadline TEXT")
         con.commit()
+    if "is_deferred" not in tx_cols:
+        con.execute("ALTER TABLE transactions ADD COLUMN is_deferred INTEGER NOT NULL DEFAULT 0")
+        con.commit()
     con.execute("""
         CREATE TABLE IF NOT EXISTS password_resets (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -876,11 +879,11 @@ def add_product():
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     con = get_db()
-    revenue       = con.execute("SELECT COALESCE(SUM(total),0)      FROM transactions WHERE type='sale'").fetchone()[0]
-    refunds       = con.execute("SELECT COALESCE(SUM(total),0)      FROM transactions WHERE type='return'").fetchone()[0]
-    cogs          = con.execute("SELECT COALESCE(SUM(cost_total),0) FROM transactions WHERE type='sale'").fetchone()[0]
-    cogs_ret      = con.execute("SELECT COALESCE(SUM(cost_total),0) FROM transactions WHERE type='return'").fetchone()[0]
-    sales_count   = con.execute("SELECT COUNT(*) FROM transactions WHERE type='sale'").fetchone()[0]
+    revenue       = con.execute("SELECT COALESCE(SUM(total),0)      FROM transactions WHERE type='sale'  AND is_deferred=0 AND returned=0").fetchone()[0]
+    refunds       = con.execute("SELECT COALESCE(SUM(total),0)      FROM transactions WHERE type='return' AND returned=0").fetchone()[0]
+    cogs          = con.execute("SELECT COALESCE(SUM(cost_total),0) FROM transactions WHERE type='sale'  AND is_deferred=0 AND returned=0").fetchone()[0]
+    cogs_ret      = con.execute("SELECT COALESCE(SUM(cost_total),0) FROM transactions WHERE type='return' AND returned=0").fetchone()[0]
+    sales_count   = con.execute("SELECT COUNT(*) FROM transactions WHERE type='sale'  AND is_deferred=0").fetchone()[0]
     returns_count = con.execute("SELECT COUNT(*) FROM transactions WHERE type='return'").fetchone()[0]
     recent        = con.execute("SELECT * FROM transactions ORDER BY id DESC LIMIT 5").fetchall()
     low_stock     = con.execute("SELECT * FROM products WHERE stock < 15").fetchall()
@@ -909,6 +912,7 @@ def make_sale():
     customer_phone = (data.get("customer_phone") or "").strip()
     manual_price   = data.get("manual_price")
     confirm_loss   = data.get("confirm_loss", False)
+    is_deferred    = 1 if data.get("is_deferred") else 0
     if not customer_phone.isdigit() or len(customer_phone) != 8:
         return jsonify({"error": "رقم الهاتف مطلوب ويجب أن يتكون من 8 أرقام (نظام عُمان)"}), 400
     con = get_db()
@@ -935,13 +939,14 @@ def make_sale():
     total      = round(unit_price   * qty, 3)
     cost_total = round(product["cost_price"] * qty, 3)
     cur = con.execute(
-        "INSERT INTO transactions (product_id, product_name, qty, total, cost_total, type, customer_name, customer_phone) "
-        "VALUES (?,?,?,?,?,?,?,?)",
-        (product["id"], product["name"], qty, total, cost_total, "sale", customer_name, customer_phone))
+        "INSERT INTO transactions (product_id, product_name, qty, total, cost_total, type, customer_name, customer_phone, is_deferred) "
+        "VALUES (?,?,?,?,?,?,?,?,?)",
+        (product["id"], product["name"], qty, total, cost_total, "sale", customer_name, customer_phone, is_deferred))
     tx_id = cur.lastrowid
     con.execute("UPDATE products SET stock = stock - ? WHERE id=?", (qty, product_id))
     con.commit(); con.close()
-    return jsonify({"message": "تمت عملية البيع!", "total": total, "tx_id": tx_id, "customer_phone": customer_phone})
+    msg = "تم تسجيل الدفع المؤجل!" if is_deferred else "تمت عملية البيع!"
+    return jsonify({"message": msg, "total": total, "tx_id": tx_id, "customer_phone": customer_phone, "is_deferred": is_deferred})
 
 
 @app.route("/api/products/<int:product_id>", methods=["DELETE"])
@@ -1269,6 +1274,29 @@ def export_customers():
         io.BytesIO(out.getvalue().encode("utf-8-sig")),
         as_attachment=True, download_name="customers_layan.csv", mimetype="text/csv"
     )
+
+
+@app.route("/api/deferred")
+def get_deferred():
+    con  = get_db()
+    rows = con.execute(
+        "SELECT * FROM transactions WHERE type='sale' AND is_deferred=1 AND returned=0 ORDER BY id DESC"
+    ).fetchall()
+    con.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/deferred/<int:tx_id>/mark-paid", methods=["POST"])
+def mark_deferred_paid(tx_id):
+    con = get_db()
+    row = con.execute("SELECT * FROM transactions WHERE id=? AND is_deferred=1", (tx_id,)).fetchone()
+    if not row:
+        con.close()
+        return jsonify({"error": "العملية غير موجودة"}), 404
+    con.execute("UPDATE transactions SET is_deferred=0 WHERE id=?", (tx_id,))
+    con.commit()
+    con.close()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/customers/top")

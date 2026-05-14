@@ -488,6 +488,10 @@ body {
     <button class="nav-tab" onclick="showTab('customers')" id="tab-customers">
       <i class="bi bi-people-fill"></i> العملاء
     </button>
+    <button class="nav-tab" onclick="showTab('deferred')" id="tab-deferred">
+      <i class="bi bi-clock-history"></i> مؤجلة الدفع
+      <span id="deferred-nav-badge" style="display:none;background:#f59e0b;color:white;border-radius:10px;padding:0 6px;font-size:0.72rem;margin-right:4px;"></span>
+    </button>
     <button class="nav-tab" onclick="showTab('goals')" id="tab-goals">
       <i class="bi bi-trophy-fill"></i> الأهداف
     </button>
@@ -883,6 +887,43 @@ body {
     </div>
   </div>
 
+  <!-- ═ DEFERRED ═ -->
+  <div id="page-deferred" class="d-none">
+    <div class="card p-4 mb-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="section-title mb-0">
+          <i class="bi bi-clock-history" style="color:#f59e0b;margin-left:0.4rem;"></i>
+          المدفوعات المؤجلة
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <span id="deferred-total-badge" style="background:#fff7ed;border:1.5px solid #fed7aa;color:#92400e;border-radius:20px;padding:0.3rem 1rem;font-size:0.85rem;font-weight:700;"></span>
+          <span id="deferred-count-badge" style="background:#fef3c7;border:1.5px solid #fde68a;color:#78350f;border-radius:20px;padding:0.3rem 1rem;font-size:0.85rem;font-weight:700;"></span>
+        </div>
+      </div>
+      <div id="deferred-empty" class="d-none" style="text-align:center;padding:3rem;color:#9ca3af;">
+        <i class="bi bi-check-circle" style="font-size:3rem;color:#22c55e;display:block;margin-bottom:1rem;"></i>
+        لا توجد مدفوعات مؤجلة
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="deferred-table" style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+          <thead>
+            <tr style="background:#fffbf0;border-bottom:2px solid #fde68a;">
+              <th style="padding:0.7rem 0.8rem;text-align:right;color:#92400e;">#</th>
+              <th style="padding:0.7rem 0.8rem;text-align:right;color:#92400e;">العميل</th>
+              <th style="padding:0.7rem 0.8rem;text-align:right;color:#92400e;">الهاتف</th>
+              <th style="padding:0.7rem 0.8rem;text-align:right;color:#92400e;">المنتج</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#92400e;">الكمية</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#92400e;">الإجمالي</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#92400e;">التاريخ</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#92400e;">إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="deferred-page-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- ═ CUSTOMERS ═ -->
   <div id="page-customers" class="d-none">
     <div class="card p-4 mb-4">
@@ -1123,6 +1164,7 @@ function showTab(name){
   if(name==="inventory") loadInventory();
   if(name==="sales")     loadSalesPage();
   if(name==="returns")   loadReturnsPage();
+  if(name==="deferred")  loadDeferredPage();
   if(name==="reports")   loadReportsPage();
   if(name==="analytics") loadAnalyticsPage();
   if(name==="customers") loadCustomersPage();
@@ -1160,7 +1202,59 @@ async function loadDeferredTable(){
 async function markPaid(tx_id){
   if(!confirm("تأكيد استلام الدفع؟ ستُضاف هذه العملية للمبيعات والأرباح.")) return;
   const res = await api("POST", `/api/deferred/${tx_id}/mark-paid`);
-  if(res.ok){ toast("تم تسجيل الدفع بنجاح","success"); loadDeferredTable(); loadDashboard(); }
+  if(res.ok){ toast("تم تسجيل الدفع بنجاح","success"); loadDeferredTable(); loadDeferredPage(); loadDashboard(); }
+  else toast(res.error||"حدث خطأ","danger");
+}
+
+async function loadDeferredPage(){
+  const rows = await api("GET","/api/deferred");
+  const tbody = document.getElementById("deferred-page-tbody");
+  const emptyEl = document.getElementById("deferred-empty");
+  const totalBadge = document.getElementById("deferred-total-badge");
+  const countBadge = document.getElementById("deferred-count-badge");
+  if(!rows || !rows.length){
+    tbody.innerHTML = "";
+    emptyEl.classList.remove("d-none");
+    totalBadge.textContent = "";
+    countBadge.textContent = "لا توجد عمليات";
+    return;
+  }
+  emptyEl.classList.add("d-none");
+  const total = rows.reduce((s,r) => s + (r.total||0), 0);
+  totalBadge.textContent = fmt(total) + " ر.ع";
+  countBadge.textContent = rows.length + " عملية";
+  tbody.innerHTML = rows.map((r,i) => {
+    const date = r.created_at ? r.created_at.split(" ")[0] : "—";
+    const phone = r.customer_phone || "";
+    const waLink = phone
+      ? `<a href="https://wa.me/968${phone}" target="_blank" style="color:#25d366;margin-left:0.3rem;"><i class="bi bi-whatsapp"></i></a>`
+      : "";
+    return `<tr style="border-bottom:1px solid #fde68a;">
+      <td style="padding:0.6rem 0.8rem;color:#9ca3af;font-size:0.82rem;">${i+1}</td>
+      <td style="padding:0.6rem 0.8rem;">${r.customer_name||'—'}</td>
+      <td style="padding:0.6rem 0.8rem;">${phone}${waLink}</td>
+      <td style="padding:0.6rem 0.8rem;">${r.product_name}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;">${r.qty}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;font-weight:700;color:#0f3460;">${fmt(r.total)} ر.ع</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;color:#6b7280;font-size:0.82rem;">${date}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;">
+        <a href="/api/invoice/deferred/${r.id}" target="_blank"
+           style="background:#0f3460;color:white;border:none;border-radius:8px;padding:0.35rem 0.75rem;cursor:pointer;font-family:inherit;font-size:0.82rem;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:0.3rem;margin-left:0.4rem;">
+          <i class="bi bi-download"></i> فاتورة
+        </a>
+        <button onclick="markPaidFromPage(${r.id})"
+           style="background:#16a34a;color:white;border:none;border-radius:8px;padding:0.35rem 0.75rem;cursor:pointer;font-family:inherit;font-size:0.82rem;font-weight:600;">
+          <i class="bi bi-check-circle-fill"></i> تم الاستلام
+        </button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+async function markPaidFromPage(tx_id){
+  if(!confirm("تأكيد استلام الدفع؟ ستُضاف هذه العملية للمبيعات والأرباح.")) return;
+  const res = await api("POST", `/api/deferred/${tx_id}/mark-paid`);
+  if(res.ok){ toast("تم تسجيل الدفع بنجاح","success"); loadDeferredPage(); loadDeferredTable(); loadDashboard(); }
   else toast(res.error||"حدث خطأ","danger");
 }
 

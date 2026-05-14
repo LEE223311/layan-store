@@ -1154,7 +1154,7 @@ async function api(method, url, body=null){
 
 // Tabs
 function showTab(name){
-  ["dashboard","inventory","sales","returns","reports","analytics","customers","goals"].forEach(t=>{
+  ["dashboard","inventory","sales","returns","deferred","reports","analytics","customers","goals"].forEach(t=>{
     document.getElementById("page-"+t).classList.add("d-none");
     document.getElementById("tab-"+t).classList.remove("active");
   });

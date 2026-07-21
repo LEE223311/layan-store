@@ -706,6 +706,39 @@ body {
         </div>
       </div>
     </div>
+
+    <!-- ═ Independent per-product finances & withdrawals ═ -->
+    <div class="card mt-4">
+      <div class="card-body p-0">
+        <div class="px-4 py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="section-title mb-0">
+            <i class="bi bi-cash-coin me-1" style="color:#0d9488"></i> المالية المستقلة للمنتجات
+          </div>
+          <span id="pf-total-badge" style="background:#ecfdf5;border:1.5px solid #a7f3d0;color:#065f46;border-radius:20px;padding:0.35rem 1rem;font-size:0.85rem;font-weight:700;"></span>
+        </div>
+        <p style="color:var(--muted);font-size:0.82rem;padding:0.9rem 1.5rem 0;margin:0;">
+          <i class="bi bi-info-circle"></i>
+          لكل منتج رصيد نقدي مستقل. عند سحب المبلغ من الصندوق اضغط «سحب المبلغ» — يُصفَّر رصيد المنتج ويُخصم تلقائياً من السيولة العامة في الرئيسية، مع بقاء إجمالي المبيعات والتقارير كما هي.
+        </p>
+        <div class="table-responsive">
+          <table class="app-table">
+            <thead>
+              <tr>
+                <th>المنتج</th>
+                <th style="text-align:center;">إجمالي المبيعات</th>
+                <th style="text-align:center;">إجمالي الربح</th>
+                <th style="text-align:center;">مسحوب سابقاً</th>
+                <th style="text-align:center;">المتوفر للسحب</th>
+                <th style="text-align:center;"></th>
+              </tr>
+            </thead>
+            <tbody id="pf-tbody">
+              <tr><td colspan="6" class="text-center py-4" style="color:var(--muted)">جاري التحميل…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ═ SALES ═ -->
@@ -896,37 +929,6 @@ body {
       </div>
       <div id="top-customers-list">
         <p class="text-center py-3" style="color:var(--muted)">جاري التحميل…</p>
-      </div>
-    </div>
-
-    <!-- Independent per-product finances & withdrawals -->
-    <div class="card p-4 mt-4">
-      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-        <div class="section-title mb-0">
-          <i class="bi bi-cash-coin me-1" style="color:#0d9488"></i> المالية المستقلة لكل منتج
-        </div>
-        <span id="pf-total-badge" style="background:#ecfdf5;border:1.5px solid #a7f3d0;color:#065f46;border-radius:20px;padding:0.3rem 1rem;font-size:0.85rem;font-weight:700;"></span>
-      </div>
-      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:1rem;">
-        <i class="bi bi-info-circle"></i>
-        كل منتج له رصيد نقدي مستقل. عند سحب المبلغ من الصندوق اضغط «سحب / تصفير» — يُصفَّر رصيد المنتج ويُخصم من السيولة العامة، مع بقاء سجلات المبيعات والتقارير كما هي.
-      </p>
-      <div style="overflow-x:auto;">
-        <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
-          <thead>
-            <tr style="background:#f0fdfa;border-bottom:2px solid #99f6e4;">
-              <th style="padding:0.7rem 0.8rem;text-align:right;color:#065f46;">المنتج</th>
-              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">المبيعات</th>
-              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">الربح</th>
-              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">مسحوب</th>
-              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">الرصيد الحالي</th>
-              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">إجراء</th>
-            </tr>
-          </thead>
-          <tbody id="pf-tbody">
-            <tr><td colspan="6" class="text-center py-4" style="color:var(--muted)">جاري التحميل…</td></tr>
-          </tbody>
-        </table>
       </div>
     </div>
   </div>
@@ -1385,6 +1387,7 @@ async function loadDashboard(){
 
 // Inventory
 async function loadInventory(){
+  loadProductFinances();
   const products = await api("GET","/api/products");
   document.getElementById("inv-count").textContent = `${products.length} منتج`;
   const tb = document.getElementById("inv-tbody");
@@ -1755,8 +1758,6 @@ async function loadAnalyticsPage(){
     api("GET","/api/analytics"),
     api("GET","/api/customers/top"),
   ]);
-
-  loadProductFinances();
 
   // summary stats
   const totalRev = d.daily.reduce((s,r)=>s+r.revenue,0);

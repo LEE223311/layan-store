@@ -545,6 +545,16 @@ body {
           <div class="stat-value" id="stat-profit">—</div>
         </div>
       </div>
+      <div class="col-6 col-lg-3 mt-3 mt-lg-0">
+        <div class="stat-card" style="background:linear-gradient(135deg,#065f46,#0d9488);">
+          <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
+          <div class="stat-label">السيولة المتاحة (الصندوق)</div>
+          <div class="stat-value" id="stat-liquidity">—</div>
+          <div id="stat-withdrawn-line" class="d-none" style="font-size:0.72rem;opacity:0.85;margin-top:0.2rem;">
+            <i class="bi bi-arrow-up-right-circle"></i> مسحوب: <span id="stat-withdrawn">—</span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Deferred Payments Table -->
@@ -728,6 +738,9 @@ body {
           <div class="mb-3">
             <label class="form-label">اسم العميل <span style="color:var(--muted);font-size:0.8rem;">(اختياري)</span></label>
             <input id="sale-customer-name" class="form-control" placeholder="مثال: أحمد محمد">
+            <div id="cust-found-hint" class="d-none" style="color:#16a34a;font-size:0.8rem;margin-top:0.3rem;font-weight:600;">
+              <i class="bi bi-check-circle-fill"></i> عميل مسجّل مسبقاً — تم جلب الاسم تلقائياً
+            </div>
           </div>
           <div class="mb-3">
             <label class="form-label">
@@ -883,6 +896,37 @@ body {
       </div>
       <div id="top-customers-list">
         <p class="text-center py-3" style="color:var(--muted)">جاري التحميل…</p>
+      </div>
+    </div>
+
+    <!-- Independent per-product finances & withdrawals -->
+    <div class="card p-4 mt-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="section-title mb-0">
+          <i class="bi bi-cash-coin me-1" style="color:#0d9488"></i> المالية المستقلة لكل منتج
+        </div>
+        <span id="pf-total-badge" style="background:#ecfdf5;border:1.5px solid #a7f3d0;color:#065f46;border-radius:20px;padding:0.3rem 1rem;font-size:0.85rem;font-weight:700;"></span>
+      </div>
+      <p style="color:var(--muted);font-size:0.82rem;margin-bottom:1rem;">
+        <i class="bi bi-info-circle"></i>
+        كل منتج له رصيد نقدي مستقل. عند سحب المبلغ من الصندوق اضغط «سحب / تصفير» — يُصفَّر رصيد المنتج ويُخصم من السيولة العامة، مع بقاء سجلات المبيعات والتقارير كما هي.
+      </p>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+          <thead>
+            <tr style="background:#f0fdfa;border-bottom:2px solid #99f6e4;">
+              <th style="padding:0.7rem 0.8rem;text-align:right;color:#065f46;">المنتج</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">المبيعات</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">الربح</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">مسحوب</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">الرصيد الحالي</th>
+              <th style="padding:0.7rem 0.8rem;text-align:center;color:#065f46;">إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="pf-tbody">
+            <tr><td colspan="6" class="text-center py-4" style="color:var(--muted)">جاري التحميل…</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -1270,6 +1314,14 @@ async function loadDashboard(){
   document.getElementById("stat-sales").textContent   = d.sales_count;
   document.getElementById("stat-returns").textContent = d.returns_count;
   document.getElementById("stat-profit").textContent  = fmt(d.profit);
+  document.getElementById("stat-liquidity").textContent = fmt(d.liquidity != null ? d.liquidity : d.net);
+  const wLine = document.getElementById("stat-withdrawn-line");
+  if(d.withdrawn && d.withdrawn > 0){
+    document.getElementById("stat-withdrawn").textContent = fmt(d.withdrawn);
+    wLine.classList.remove("d-none");
+  } else {
+    wLine.classList.add("d-none");
+  }
 
   // Goals reminder
   const activeBiz = bizGoals.filter(g=>g.progress<100);
@@ -1371,6 +1423,33 @@ function validatePhone(el){
   el.value = val;
   if(val.length > 0 && val.length !== 8) err.classList.remove("d-none");
   else                                   err.classList.add("d-none");
+  if(val.length === 8) lookupCustomer(val);
+  else                 resetCustomerName();
+}
+
+// Smart customer lookup — auto-fill name for an existing phone (avoids duplicate records)
+async function lookupCustomer(phone){
+  try{
+    const r = await api("GET", "/api/customer/lookup?phone=" + phone);
+    const nameInp = document.getElementById("sale-customer-name");
+    const hint    = document.getElementById("cust-found-hint");
+    if(r && r.found){
+      nameInp.value = r.customer_name;
+      nameInp.setAttribute("readonly","readonly");
+      nameInp.style.background = "#f0fdf4";
+      hint.classList.remove("d-none");
+    } else {
+      resetCustomerName();
+    }
+  }catch{ resetCustomerName(); }
+}
+
+function resetCustomerName(){
+  const nameInp = document.getElementById("sale-customer-name");
+  const hint    = document.getElementById("cust-found-hint");
+  nameInp.removeAttribute("readonly");
+  nameInp.style.background = "";
+  hint.classList.add("d-none");
 }
 
 async function addProduct(){
@@ -1500,6 +1579,7 @@ async function processSale(confirm_loss=false){
   document.getElementById("sale-price").value          = "";
   document.getElementById("sale-customer-name").value  = "";
   document.getElementById("sale-customer-phone").value = "";
+  resetCustomerName();
   document.getElementById("sale-loss-warn").classList.add("d-none");
   document.getElementById("deferred-check").checked    = false;
   updateSaleTotal();
@@ -1676,6 +1756,8 @@ async function loadAnalyticsPage(){
     api("GET","/api/customers/top"),
   ]);
 
+  loadProductFinances();
+
   // summary stats
   const totalRev = d.daily.reduce((s,r)=>s+r.revenue,0);
   document.getElementById("an-active-days").textContent    = d.daily.length;
@@ -1754,6 +1836,49 @@ async function loadAnalyticsPage(){
       },
       options:{plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}}, responsive:true}
     });
+  }
+}
+
+// Independent per-product finances & withdrawals
+async function loadProductFinances(){
+  const tbody = document.getElementById("pf-tbody");
+  const badge = document.getElementById("pf-total-badge");
+  const data  = await api("GET","/api/product-finances");
+  const rows  = (data && data.products) || [];
+  badge.textContent = "إجمالي السيولة: " + fmt(data.total_balance||0) + " ر.ع";
+  if(!rows.length){
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4" style="color:var(--muted)">لا توجد منتجات بعد.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r=>{
+    const hasBalance = r.balance > 0;
+    const nameEsc = r.product_name.replace(/'/g,"\\'");
+    return `<tr style="border-bottom:1px solid #e5e7eb;">
+      <td style="padding:0.6rem 0.8rem;font-weight:600;">${r.product_name}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;">${fmt(r.revenue)}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;color:#065f46;font-weight:600;">${fmt(r.profit)}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;color:#9ca3af;">${r.withdrawn>0?fmt(r.withdrawn):"—"}</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;font-weight:700;color:${hasBalance?"#0f3460":"#9ca3af"};">${fmt(r.balance)} ر.ع</td>
+      <td style="padding:0.6rem 0.8rem;text-align:center;">
+        <button onclick="withdrawProduct(${r.product_id},'${nameEsc}',${r.balance})"
+          ${hasBalance?"":"disabled"}
+          style="background:${hasBalance?"#0d9488":"#e5e7eb"};color:${hasBalance?"white":"#9ca3af"};border:none;border-radius:8px;padding:0.35rem 0.8rem;cursor:${hasBalance?"pointer":"not-allowed"};font-family:inherit;font-size:0.8rem;font-weight:600;">
+          <i class="bi bi-cash-stack"></i> سحب / تصفير
+        </button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+async function withdrawProduct(product_id, name, balance){
+  if(!confirm(`تأكيد سحب مبلغ ${fmt(balance)} ر.ع من رصيد «${name}»؟\n\nسيُصفَّر رصيد هذا المنتج ويُخصم من السيولة العامة. لن تتأثر سجلات المبيعات أو التقارير.`)) return;
+  const res = await api("POST", `/api/product-finances/${product_id}/withdraw`);
+  if(res && res.ok){
+    toast(`تم سحب ${fmt(res.withdrawn)} ر.ع وتصفير رصيد المنتج`,"success");
+    loadProductFinances();
+    loadDashboard();
+  } else {
+    toast((res && res.error) || "حدث خطأ أثناء السحب","danger");
   }
 }
 

@@ -125,6 +125,17 @@ def _migrate():
             used       INTEGER NOT NULL DEFAULT 0
         )
     """)
+    # Per-product cash withdrawals (audit trail — never deleted, keeps report math intact)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS withdrawals (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id   INTEGER,
+            product_name TEXT    NOT NULL,
+            amount       REAL    NOT NULL,
+            profit       REAL    NOT NULL DEFAULT 0,
+            created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     con.commit()
     con.close()
 
@@ -411,6 +422,7 @@ def generate_pdf_report():
     sales_count = con.execute("SELECT COUNT(*) FROM transactions WHERE type='sale'").fetchone()[0]
     ret_count   = con.execute("SELECT COUNT(*) FROM transactions WHERE type='return'").fetchone()[0]
     units_sold  = con.execute("SELECT COALESCE(SUM(qty),0) FROM transactions WHERE type='sale'").fetchone()[0]
+    withdrawn   = con.execute("SELECT COALESCE(SUM(amount),0) FROM withdrawals").fetchone()[0]
     txs         = con.execute("SELECT * FROM transactions ORDER BY id DESC").fetchall()
     products    = con.execute("SELECT * FROM products ORDER BY name").fetchall()
     top_rows    = con.execute(
@@ -516,6 +528,11 @@ def generate_pdf_report():
     pdf.set_text_color(80, 80, 80)
     pdf.cell(90, 7, ar(f"المبيعات: {sales_count}"),        align="C")
     pdf.cell(90, 7, ar(f"الشحنات المرفوضة: {ret_count}"),  align="C", new_x="LMARGIN", new_y="NEXT")
+    if withdrawn > 0:
+        sf(9)
+        pdf.set_text_color(120, 80, 0)
+        pdf.cell(0, 7, ar(f"إجمالي المبالغ المسحوبة من الصندوق: {withdrawn:.3f} ر.ع"),
+                 align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
     # ── top customer box ──
@@ -605,7 +622,7 @@ def generate_pdf_report():
     return filename
 
 
-def generate_invoice_pdf(tx_id):
+def generate_invoice_pdf(tx_id, force_deferred=False):
     """Generate a professional one-page invoice PDF. Returns BytesIO or None."""
     from fpdf import FPDF
 
@@ -616,6 +633,7 @@ def generate_invoice_pdf(tx_id):
     con.close()
     if not tx:
         return None
+    is_deferred = force_deferred or bool(tx["is_deferred"])
 
     reg_font, bold_font = _find_fonts()
     has_unicode = reg_font is not None
@@ -666,8 +684,23 @@ def generate_invoice_pdf(tx_id):
     # ── invoice title ──
     sf(15, bold=True)
     pdf.set_text_color(*NAVY)
-    pdf.cell(0, 10, ar("فاتورة بيع"), align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(3)
+    title_text = ar("فاتورة بيع — مؤجلة الدفع") if is_deferred else ar("فاتورة بيع")
+    pdf.cell(0, 10, title_text, align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(2)
+
+    if is_deferred:
+        pdf.set_fill_color(254, 226, 226)
+        pdf.set_draw_color(220, 38, 38)
+        stamp_y = pdf.get_y()
+        pdf.rect(15, stamp_y, 180, 12, "FD")
+        sf(11, bold=True)
+        pdf.set_text_color(180, 0, 0)
+        pdf.set_xy(15, stamp_y + 2)
+        pdf.cell(180, 8, ar("مؤجلة الدفع / غير مدفوعة"), align="C", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(4)
+    else:
+        pdf.ln(1)
 
     # ── invoice meta ──
     date_str = str(tx["created_at"])[:10] if tx["created_at"] else datetime.now().strftime("%Y-%m-%d")
@@ -885,13 +918,16 @@ def dashboard():
     cogs_ret      = con.execute("SELECT COALESCE(SUM(cost_total),0) FROM transactions WHERE type='return' AND returned=0").fetchone()[0]
     sales_count   = con.execute("SELECT COUNT(*) FROM transactions WHERE type='sale'  AND is_deferred=0").fetchone()[0]
     returns_count = con.execute("SELECT COUNT(*) FROM transactions WHERE type='return'").fetchone()[0]
+    withdrawn     = con.execute("SELECT COALESCE(SUM(amount),0) FROM withdrawals").fetchone()[0]
     recent        = con.execute("SELECT * FROM transactions ORDER BY id DESC LIMIT 5").fetchall()
     low_stock     = con.execute("SELECT * FROM products WHERE stock < 15").fetchall()
     con.close()
-    net    = revenue - refunds
-    profit = net - (cogs - cogs_ret)
+    net       = revenue - refunds
+    profit    = net - (cogs - cogs_ret)
+    liquidity = round(net - withdrawn, 3)   # cash actually in the box after withdrawals
     return jsonify({
         "revenue": revenue, "refunds": refunds, "net": net, "profit": profit,
+        "withdrawn": round(withdrawn, 3), "liquidity": liquidity,
         "sales_count": sales_count, "returns_count": returns_count,
         "recent":    [dict(r) for r in recent],
         "low_stock": [dict(p) for p in low_stock],
@@ -1197,14 +1233,23 @@ def download_invoice(tx_id):
         buf = generate_invoice_pdf(tx_id)
         if not buf:
             return jsonify({"error": "العملية غير موجودة"}), 404
-        return send_file(
-            buf,
-            as_attachment=True,
-            download_name=f"Layan_Invoice_{tx_id:04d}.pdf",
-            mimetype="application/pdf",
-        )
+        return send_file(buf, as_attachment=True,
+                         download_name=f"Layan_Invoice_{tx_id:04d}.pdf",
+                         mimetype="application/pdf")
     except Exception as e:
-        print(f"[invoice] Error generating invoice {tx_id}: {e}")
+        return jsonify({"error": f"فشل إنشاء الفاتورة: {e}"}), 500
+
+
+@app.route("/api/invoice/deferred/<int:tx_id>")
+def download_deferred_invoice(tx_id):
+    try:
+        buf = generate_invoice_pdf(tx_id, force_deferred=True)
+        if not buf:
+            return jsonify({"error": "العملية غير موجودة"}), 404
+        return send_file(buf, as_attachment=True,
+                         download_name=f"Layan_Deferred_{tx_id:04d}.pdf",
+                         mimetype="application/pdf")
+    except Exception as e:
         return jsonify({"error": f"فشل إنشاء الفاتورة: {e}"}), 500
 
 
@@ -1297,6 +1342,95 @@ def mark_deferred_paid(tx_id):
     con.commit()
     con.close()
     return jsonify({"ok": True})
+
+
+@app.route("/api/customer/lookup")
+def customer_lookup():
+    """Smart lookup — return the existing customer name for an 8-digit phone, if any."""
+    phone = (request.args.get("phone") or "").strip()
+    if not phone.isdigit() or len(phone) != 8:
+        return jsonify({"found": False})
+    con = get_db()
+    row = con.execute(
+        "SELECT customer_name FROM transactions "
+        "WHERE customer_phone=? AND customer_name != '' "
+        "ORDER BY id DESC LIMIT 1", (phone,)
+    ).fetchone()
+    con.close()
+    if row and row["customer_name"]:
+        return jsonify({"found": True, "customer_name": row["customer_name"]})
+    return jsonify({"found": False})
+
+
+@app.route("/api/product-finances")
+def product_finances():
+    """Independent per-product cash accounting: revenue, profit, withdrawn, and current balance."""
+    con = get_db()
+    prods = con.execute("SELECT id, name, category FROM products ORDER BY name").fetchall()
+    result = []
+    total_balance = 0.0
+    for p in prods:
+        agg = con.execute(
+            "SELECT COALESCE(SUM(total),0) rev, "
+            "       COALESCE(SUM(total - cost_total),0) profit, "
+            "       COALESCE(SUM(qty),0) units "
+            "FROM transactions "
+            "WHERE product_id=? AND type='sale' AND is_deferred=0 AND returned=0",
+            (p["id"],)
+        ).fetchone()
+        wd = con.execute(
+            "SELECT COALESCE(SUM(amount),0) w_amt, COALESCE(SUM(profit),0) w_prof "
+            "FROM withdrawals WHERE product_id=?", (p["id"],)
+        ).fetchone()
+        balance        = round(agg["rev"]    - wd["w_amt"],  3)
+        profit_balance = round(agg["profit"] - wd["w_prof"], 3)
+        total_balance += balance
+        result.append({
+            "product_id":     p["id"],
+            "product_name":   p["name"],
+            "category":       p["category"] or "",
+            "revenue":        round(agg["rev"], 3),
+            "profit":         round(agg["profit"], 3),
+            "units":          agg["units"],
+            "withdrawn":      round(wd["w_amt"], 3),
+            "balance":        balance,
+            "profit_balance": profit_balance,
+        })
+    con.close()
+    return jsonify({"products": result, "total_balance": round(total_balance, 3)})
+
+
+@app.route("/api/product-finances/<int:product_id>/withdraw", methods=["POST"])
+def withdraw_product(product_id):
+    """Withdraw (reset to zero) the available cash counter for one product.
+
+    Records the withdrawn amount in the audit-trail `withdrawals` table without
+    touching historical transactions, so the bi-weekly PDF report stays correct.
+    """
+    con = get_db()
+    p = con.execute("SELECT * FROM products WHERE id=?", (product_id,)).fetchone()
+    if not p:
+        con.close(); return jsonify({"error": "المنتج غير موجود"}), 404
+    agg = con.execute(
+        "SELECT COALESCE(SUM(total),0) rev, COALESCE(SUM(total - cost_total),0) profit "
+        "FROM transactions "
+        "WHERE product_id=? AND type='sale' AND is_deferred=0 AND returned=0",
+        (product_id,)
+    ).fetchone()
+    wd = con.execute(
+        "SELECT COALESCE(SUM(amount),0) w_amt, COALESCE(SUM(profit),0) w_prof "
+        "FROM withdrawals WHERE product_id=?", (product_id,)
+    ).fetchone()
+    balance        = round(agg["rev"]    - wd["w_amt"],  3)
+    profit_balance = round(agg["profit"] - wd["w_prof"], 3)
+    if balance <= 0:
+        con.close(); return jsonify({"error": "لا يوجد رصيد متاح للسحب لهذا المنتج"}), 400
+    con.execute(
+        "INSERT INTO withdrawals (product_id, product_name, amount, profit) VALUES (?,?,?,?)",
+        (product_id, p["name"], balance, profit_balance)
+    )
+    con.commit(); con.close()
+    return jsonify({"ok": True, "withdrawn": balance, "profit_withdrawn": profit_balance})
 
 
 @app.route("/api/customers/top")

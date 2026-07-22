@@ -1535,6 +1535,19 @@ def withdraw_product(product_id):
     return jsonify({"ok": True, "withdrawn": balance, "profit_withdrawn": profit_balance})
 
 
+@app.route("/api/withdrawals")
+def list_withdrawals():
+    """Full audit log of every withdrawal (product, amount, profit, timestamp)."""
+    con  = get_db()
+    rows = con.execute(
+        "SELECT id, product_id, product_name, amount, profit, created_at "
+        "FROM withdrawals ORDER BY id DESC"
+    ).fetchall()
+    total = con.execute("SELECT COALESCE(SUM(amount),0) FROM withdrawals").fetchone()[0]
+    con.close()
+    return jsonify({"withdrawals": [dict(r) for r in rows], "total": round(total, 3)})
+
+
 @app.route("/api/customers/top")
 def get_top_customers():
     con  = get_db()

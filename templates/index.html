@@ -739,6 +739,38 @@ body {
         </div>
       </div>
     </div>
+
+    <!-- ═ Withdrawals audit log ═ -->
+    <div class="card mt-4">
+      <div class="card-body p-0">
+        <div class="px-4 py-3 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="section-title mb-0">
+            <i class="bi bi-journal-text me-1" style="color:#7c3aed"></i> سجل السحوبات
+          </div>
+          <span id="wd-total-badge" style="background:#f5f3ff;border:1.5px solid #ddd6fe;color:#5b21b6;border-radius:20px;padding:0.35rem 1rem;font-size:0.85rem;font-weight:700;"></span>
+        </div>
+        <p style="color:var(--muted);font-size:0.82rem;padding:0.9rem 1.5rem 0;margin:0;">
+          <i class="bi bi-info-circle"></i>
+          كل عملية سحب تُسجَّل هنا تلقائياً (المنتج، المبلغ، التاريخ والوقت) كسجل دائم للمراجعة والتدقيق — لا يُحذف.
+        </p>
+        <div class="table-responsive">
+          <table class="app-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>المنتج</th>
+                <th style="text-align:center;">المبلغ المسحوب</th>
+                <th style="text-align:center;">الربح ضمنه</th>
+                <th style="text-align:center;">التاريخ والوقت</th>
+              </tr>
+            </thead>
+            <tbody id="wd-log-tbody">
+              <tr><td colspan="5" class="text-center py-4" style="color:var(--muted)">جاري التحميل…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ═ SALES ═ -->
@@ -1388,6 +1420,7 @@ async function loadDashboard(){
 // Inventory
 async function loadInventory(){
   loadProductFinances();
+  loadWithdrawalsLog();
   const products = await api("GET","/api/products");
   document.getElementById("inv-count").textContent = `${products.length} منتج`;
   const tb = document.getElementById("inv-tbody");
@@ -1880,10 +1913,35 @@ async function withdrawProduct(product_id, name, balance){
   if(res && res.ok){
     toast(`تم سحب ${fmt(res.withdrawn)} ر.ع وتصفير رصيد المنتج`,"success");
     loadProductFinances();
+    loadWithdrawalsLog();
     loadDashboard();
   } else {
     toast((res && res.error) || "حدث خطأ أثناء السحب","danger");
   }
+}
+
+// Withdrawals audit log
+async function loadWithdrawalsLog(){
+  const tbody = document.getElementById("wd-log-tbody");
+  const badge = document.getElementById("wd-total-badge");
+  if(!tbody) return;
+  const data = await api("GET","/api/withdrawals");
+  const rows = (data && data.withdrawals) || [];
+  badge.textContent = "إجمالي المسحوب: " + fmt((data && data.total) || 0) + " ر.ع";
+  if(!rows.length){
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4" style="color:var(--muted)">لا توجد سحوبات بعد.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map((r,i)=>{
+    const dt = r.created_at ? r.created_at.replace("T"," ").slice(0,16) : "—";
+    return `<tr>
+      <td style="color:var(--muted);font-size:0.82rem;">${rows.length - i}</td>
+      <td class="fw-semibold">${r.product_name||'—'}</td>
+      <td style="text-align:center;font-weight:700;color:#5b21b6;">${fmt(r.amount)} ر.ع</td>
+      <td style="text-align:center;color:#065f46;">${fmt(r.profit||0)} ر.ع</td>
+      <td style="text-align:center;color:var(--muted);font-size:0.82rem;">${dt}</td>
+    </tr>`;
+  }).join("");
 }
 
 // Deadline helper

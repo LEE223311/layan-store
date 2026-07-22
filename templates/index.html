@@ -1854,8 +1854,11 @@ async function loadProductFinances(){
   tbody.innerHTML = rows.map(r=>{
     const hasBalance = r.balance > 0;
     const nameEsc = r.product_name.replace(/'/g,"\\'");
+    const deletedTag = (r.exists === false)
+      ? ` <span style="background:#fee2e2;color:#991b1b;border-radius:6px;padding:0.05rem 0.4rem;font-size:0.68rem;font-weight:700;">محذوف</span>`
+      : "";
     return `<tr style="border-bottom:1px solid #e5e7eb;">
-      <td style="padding:0.6rem 0.8rem;font-weight:600;">${r.product_name}</td>
+      <td style="padding:0.6rem 0.8rem;font-weight:600;">${r.product_name}${deletedTag}</td>
       <td style="padding:0.6rem 0.8rem;text-align:center;">${fmt(r.revenue)}</td>
       <td style="padding:0.6rem 0.8rem;text-align:center;color:#065f46;font-weight:600;">${fmt(r.profit)}</td>
       <td style="padding:0.6rem 0.8rem;text-align:center;color:#9ca3af;">${r.withdrawn>0?fmt(r.withdrawn):"—"}</td>

@@ -1364,39 +1364,72 @@ def customer_lookup():
 
 @app.route("/api/product-finances")
 def product_finances():
-    """Independent per-product cash accounting: revenue, profit, withdrawn, and current balance."""
+    """Independent per-product cash accounting: revenue, profit, withdrawn, and current balance.
+
+    Aggregates by product_id from the transactions table so that products which were
+    deleted from the catalog but still carry real sales history are still shown. This
+    keeps the section total reconciled with the dashboard's available-liquidity figure.
+    """
     con = get_db()
-    prods = con.execute("SELECT id, name, category FROM products ORDER BY name").fetchall()
+    prods = con.execute("SELECT id, name, category FROM products").fetchall()
+    sales = con.execute(
+        "SELECT product_id, MAX(product_name) AS product_name, "
+        "       COALESCE(SUM(total),0) AS rev, "
+        "       COALESCE(SUM(total - cost_total),0) AS profit, "
+        "       COALESCE(SUM(qty),0) AS units "
+        "FROM transactions "
+        "WHERE type='sale' AND is_deferred=0 AND returned=0 "
+        "GROUP BY product_id"
+    ).fetchall()
+    wds = con.execute(
+        "SELECT product_id, COALESCE(SUM(amount),0) AS w_amt, COALESCE(SUM(profit),0) AS w_prof "
+        "FROM withdrawals GROUP BY product_id"
+    ).fetchall()
+    con.close()
+
+    wd_map = {w["product_id"]: w for w in wds}
+    data   = {}   # keyed by product_id
+    # seed with catalog products (so zero-sales products still appear)
+    for p in prods:
+        data[p["id"]] = {
+            "product_id": p["id"], "product_name": p["name"], "category": p["category"] or "",
+            "revenue": 0.0, "profit": 0.0, "units": 0, "exists": True,
+        }
+    # fold in sales — includes deleted products (product_id not in catalog)
+    for s in sales:
+        pid = s["product_id"]
+        if pid in data:
+            data[pid]["revenue"] = s["rev"]
+            data[pid]["profit"]  = s["profit"]
+            data[pid]["units"]   = s["units"]
+        else:
+            data[pid] = {
+                "product_id": pid, "product_name": s["product_name"] or "—", "category": "",
+                "revenue": s["rev"], "profit": s["profit"], "units": s["units"], "exists": False,
+            }
+
     result = []
     total_balance = 0.0
-    for p in prods:
-        agg = con.execute(
-            "SELECT COALESCE(SUM(total),0) rev, "
-            "       COALESCE(SUM(total - cost_total),0) profit, "
-            "       COALESCE(SUM(qty),0) units "
-            "FROM transactions "
-            "WHERE product_id=? AND type='sale' AND is_deferred=0 AND returned=0",
-            (p["id"],)
-        ).fetchone()
-        wd = con.execute(
-            "SELECT COALESCE(SUM(amount),0) w_amt, COALESCE(SUM(profit),0) w_prof "
-            "FROM withdrawals WHERE product_id=?", (p["id"],)
-        ).fetchone()
-        balance        = round(agg["rev"]    - wd["w_amt"],  3)
-        profit_balance = round(agg["profit"] - wd["w_prof"], 3)
+    for pid, d in data.items():
+        w      = wd_map.get(pid)
+        w_amt  = w["w_amt"]  if w else 0.0
+        w_prof = w["w_prof"] if w else 0.0
+        balance        = round(d["revenue"] - w_amt,  3)
+        profit_balance = round(d["profit"]  - w_prof, 3)
         total_balance += balance
         result.append({
-            "product_id":     p["id"],
-            "product_name":   p["name"],
-            "category":       p["category"] or "",
-            "revenue":        round(agg["rev"], 3),
-            "profit":         round(agg["profit"], 3),
-            "units":          agg["units"],
-            "withdrawn":      round(wd["w_amt"], 3),
+            "product_id":     pid,
+            "product_name":   d["product_name"],
+            "category":       d["category"],
+            "revenue":        round(d["revenue"], 3),
+            "profit":         round(d["profit"], 3),
+            "units":          d["units"],
+            "withdrawn":      round(w_amt, 3),
             "balance":        balance,
             "profit_balance": profit_balance,
+            "exists":         d["exists"],
         })
-    con.close()
+    result.sort(key=lambda r: (-r["revenue"], r["product_name"]))
     return jsonify({"products": result, "total_balance": round(total_balance, 3)})
 
 
@@ -1408,15 +1441,17 @@ def withdraw_product(product_id):
     touching historical transactions, so the bi-weekly PDF report stays correct.
     """
     con = get_db()
-    p = con.execute("SELECT * FROM products WHERE id=?", (product_id,)).fetchone()
-    if not p:
-        con.close(); return jsonify({"error": "المنتج غير موجود"}), 404
     agg = con.execute(
-        "SELECT COALESCE(SUM(total),0) rev, COALESCE(SUM(total - cost_total),0) profit "
+        "SELECT COALESCE(SUM(total),0) rev, COALESCE(SUM(total - cost_total),0) profit, "
+        "       MAX(product_name) pname "
         "FROM transactions "
         "WHERE product_id=? AND type='sale' AND is_deferred=0 AND returned=0",
         (product_id,)
     ).fetchone()
+    prow  = con.execute("SELECT name FROM products WHERE id=?", (product_id,)).fetchone()
+    pname = (prow["name"] if prow else None) or agg["pname"]
+    if not pname:
+        con.close(); return jsonify({"error": "المنتج غير موجود"}), 404
     wd = con.execute(
         "SELECT COALESCE(SUM(amount),0) w_amt, COALESCE(SUM(profit),0) w_prof "
         "FROM withdrawals WHERE product_id=?", (product_id,)
@@ -1427,7 +1462,7 @@ def withdraw_product(product_id):
         con.close(); return jsonify({"error": "لا يوجد رصيد متاح للسحب لهذا المنتج"}), 400
     con.execute(
         "INSERT INTO withdrawals (product_id, product_name, amount, profit) VALUES (?,?,?,?)",
-        (product_id, p["name"], balance, profit_balance)
+        (product_id, pname, balance, profit_balance)
     )
     con.commit(); con.close()
     return jsonify({"ok": True, "withdrawn": balance, "profit_withdrawn": profit_balance})

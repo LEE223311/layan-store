@@ -24,7 +24,8 @@ REPORTS_DIR = os.path.join(_DATA, "reports")
 SMTP_USER        = os.environ.get("SMTP_USER",        "storeq620@gmail.com")
 SMTP_PASS        = os.environ.get("SMTP_PASS",        "ikfdczmrvsjxuoop")
 REPORT_EMAIL_TO  = os.environ.get("REPORT_EMAIL_TO",  "storeq620@gmail.com")
-WHATSAPP_NUMBER  = os.environ.get("WHATSAPP_NUMBER",  "")
+WHATSAPP_NUMBER  = os.environ.get("WHATSAPP_NUMBER",  "")   # report recipient (Green API)
+STORE_PHONE      = os.environ.get("STORE_PHONE",      "92061690")   # contact number shown on the invoice
 
 
 # ── database ──────────────────────────────────────────────────────────────────
@@ -690,7 +691,7 @@ def generate_invoice_pdf(tx_id, force_deferred=False):
 
     sf(9)
     pdf.set_text_color(205, 214, 230)
-    contact = f"واتساب: {WHATSAPP_NUMBER}" if WHATSAPP_NUMBER else "متجر لَيان"
+    contact = f"واتساب: {STORE_PHONE}" if STORE_PHONE else "متجر لَيان"
     pdf.set_xy(0, 40)
     pdf.cell(PAGE_W, 6, ar(contact), align="C")
 
@@ -859,8 +860,8 @@ def generate_invoice_pdf(tx_id, force_deferred=False):
     pdf.set_text_color(*MUTE)
     now  = datetime.now()
     foot = f"Layan  ·  {now.strftime('%Y-%m-%d %H:%M')}"
-    if WHATSAPP_NUMBER:
-        foot += f"  ·  {WHATSAPP_NUMBER}"
+    if STORE_PHONE:
+        foot += f"  ·  {STORE_PHONE}"
     pdf.set_xy(0, 285)
     pdf.cell(PAGE_W, 6, ar(foot), align="C")
 

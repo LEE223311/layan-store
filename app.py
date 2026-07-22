@@ -623,7 +623,7 @@ def generate_pdf_report():
 
 
 def generate_invoice_pdf(tx_id, force_deferred=False):
-    """Generate a professional one-page invoice PDF. Returns BytesIO or None."""
+    """Generate an elegant, strictly single-page A4 invoice PDF. Returns BytesIO or None."""
     from fpdf import FPDF
 
     logo_path = os.path.join(_BASE, "static", "logo.png")
@@ -638,8 +638,8 @@ def generate_invoice_pdf(tx_id, force_deferred=False):
     reg_font, bold_font = _find_fonts()
     has_unicode = reg_font is not None
 
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf = FPDF(format="A4")
+    pdf.set_auto_page_break(auto=False)          # strictly one page — never overflow
     pdf.set_margins(15, 15, 15)
     pdf.add_page()
 
@@ -656,147 +656,213 @@ def generate_invoice_pdf(tx_id, force_deferred=False):
     def ar(text):
         return _reshape(text) if has_unicode else str(text)
 
-    NAVY  = (15,  52,  96)
-    GOLD  = (212, 175, 55)
-    WHITE = (255, 255, 255)
-    LGREY = (245, 248, 255)
-    GREEN = (27,  94,  32)
+    # ── palette (navy + gold luxury) ──
+    NAVY   = (15,  52,  96)
+    GOLD   = (198, 160, 60)
+    WHITE  = (255, 255, 255)
+    INK    = (35,  40,  50)
+    MUTE   = (120, 128, 140)
+    LINE   = (224, 228, 234)
+    SOFT   = (247, 249, 252)
+    HEADBG = (240, 242, 246)
+    REDBG  = (253, 226, 226)
+    RED    = (185, 28,  28)
+    GRNBG  = (223, 245, 230)
+    GRN    = (22,  120, 60)
 
-    # ── header ──
+    PAGE_W = 210
+    L, R   = 15, 195
+    CW     = R - L                 # 180
+
+    # ── header band ──
     pdf.set_fill_color(*NAVY)
-    pdf.rect(0, 0, 210, 44, "F")
+    pdf.rect(0, 0, PAGE_W, 50, "F")
     pdf.set_fill_color(*GOLD)
-    pdf.rect(0, 44, 210, 3, "F")
+    pdf.rect(0, 50, PAGE_W, 2.2, "F")
 
     if os.path.isfile(logo_path):
-        pdf.image(logo_path, x=75, y=5, h=32)
+        pdf.image(logo_path, x=PAGE_W / 2 - 13, y=6, h=22)
+
+    sf(19, bold=True)
+    pdf.set_text_color(*GOLD)
+    pdf.set_xy(0, 29)
+    pdf.cell(PAGE_W, 9, ar("Layan"), align="C")
 
     sf(9)
-    pdf.set_text_color(200, 210, 230)
-    pdf.set_y(39)
-    wa_line = ar(f"واتساب: {WHATSAPP_NUMBER}") if WHATSAPP_NUMBER else ""
-    if wa_line:
-        pdf.cell(0, 5, wa_line, align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(205, 214, 230)
+    contact = f"واتساب: {WHATSAPP_NUMBER}" if WHATSAPP_NUMBER else "متجر لَيان"
+    pdf.set_xy(0, 40)
+    pdf.cell(PAGE_W, 6, ar(contact), align="C")
 
-    pdf.set_text_color(0, 0, 0)
-    pdf.set_y(56)
-
-    # ── invoice title ──
-    sf(15, bold=True)
+    # ── invoice title + gold divider ──
+    pdf.set_xy(0, 58)
+    sf(21, bold=True)
     pdf.set_text_color(*NAVY)
-    title_text = ar("فاتورة بيع — مؤجلة الدفع") if is_deferred else ar("فاتورة بيع")
-    pdf.cell(0, 10, title_text, align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(2)
+    pdf.cell(PAGE_W, 10, ar("فاتورة"), align="C")
+    pdf.set_draw_color(*GOLD)
+    pdf.set_line_width(0.6)
+    pdf.line(PAGE_W / 2 - 14, 70, PAGE_W / 2 + 14, 70)
+    pdf.set_line_width(0.2)
 
-    if is_deferred:
-        pdf.set_fill_color(254, 226, 226)
-        pdf.set_draw_color(220, 38, 38)
-        stamp_y = pdf.get_y()
-        pdf.rect(15, stamp_y, 180, 12, "FD")
-        sf(11, bold=True)
-        pdf.set_text_color(180, 0, 0)
-        pdf.set_xy(15, stamp_y + 2)
-        pdf.cell(180, 8, ar("مؤجلة الدفع / غير مدفوعة"), align="C", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_text_color(0, 0, 0)
-        pdf.ln(4)
-    else:
-        pdf.ln(1)
+    # ── data prep ──
+    created  = str(tx["created_at"]) if tx["created_at"] else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    date_str = created[:10]
+    time_str = created[11:16] if len(created) >= 16 else datetime.now().strftime("%H:%M")
+    c_name   = tx["customer_name"]  or "—"
+    c_phone  = tx["customer_phone"] or "—"
 
-    # ── invoice meta ──
-    date_str = str(tx["created_at"])[:10] if tx["created_at"] else datetime.now().strftime("%Y-%m-%d")
-    sf(9)
-    pdf.set_text_color(80, 80, 80)
-    pdf.cell(90, 6, ar(f"رقم الفاتورة:  #{tx['id']:04d}"), align="L")
-    pdf.cell(90, 6, ar(f"التاريخ:  {date_str}"), align="R", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(5)
+    # ── two info boxes (customer right · invoice details left) ──
+    box_y, box_h, gap = 78, 34, 6
+    bw      = (CW - gap) / 2        # 87
+    left_x  = L
+    right_x = L + bw + gap
 
-    # ── customer box ──
-    c_name  = tx["customer_name"]  if tx["customer_name"]  else "—"
-    c_phone = tx["customer_phone"] if tx["customer_phone"] else "—"
-    cy = pdf.get_y()
-    pdf.set_fill_color(*LGREY)
-    pdf.set_draw_color(200, 210, 230)
-    pdf.rect(15, cy, 180, 22, "FD")
-    sf(9, bold=True)
-    pdf.set_text_color(*NAVY)
-    pdf.set_xy(15, cy + 3)
-    pdf.cell(180, 6, ar("بيانات العميل"), align="C", new_x="LMARGIN", new_y="NEXT")
-    sf(9)
-    pdf.set_text_color(50, 50, 50)
-    pdf.cell(90, 6, ar(f"الاسم:  {c_name}"), align="C")
-    pdf.cell(90, 6, ar(f"الهاتف:  {c_phone}"), align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(7)
+    def info_box(x, title, lines):
+        pdf.set_fill_color(*NAVY)
+        pdf.rect(x, box_y, bw, 9, "F")
+        sf(10, bold=True)
+        pdf.set_text_color(*WHITE)
+        pdf.set_xy(x, box_y + 1.6)
+        pdf.cell(bw, 6, ar(title), align="C")
+        pdf.set_fill_color(*SOFT)
+        pdf.set_draw_color(*LINE)
+        pdf.rect(x, box_y + 9, bw, box_h - 9, "FD")
+        sf(9.5)
+        pdf.set_text_color(*INK)
+        ry = box_y + 12
+        for line in lines:
+            pdf.set_xy(x + 4, ry)
+            pdf.cell(bw - 8, 6, ar(line), align="R")
+            ry += 7.3
 
-    # ── products table ──
-    sf(9, bold=True)
-    pdf.set_fill_color(*NAVY)
-    pdf.set_text_color(*WHITE)
-    cols = [(ar("المنتج"), 86), (ar("الكمية"), 26), (ar("سعر الوحدة ر.ع"), 40), (ar("الإجمالي ر.ع"), 38)]
-    for h, w in cols:
-        pdf.cell(w, 9, h, border=1, fill=True, align="C")
-    pdf.ln()
+    info_box(right_x, "بيانات العميل", [
+        f"الاسم: {c_name}",
+        f"الهاتف: {c_phone}",
+    ])
+    info_box(left_x, "تفاصيل الفاتورة", [
+        f"رقم الفاتورة: #{tx['id']:04d}",
+        f"التاريخ: {date_str}",
+        f"الوقت: {time_str}",
+    ])
 
-    sf(9)
-    pdf.set_fill_color(*LGREY)
-    pdf.set_text_color(0, 0, 0)
+    # ── items table (RTL: product on the right) ──
+    tbl_y  = box_y + box_h + 12    # 124
     unit_price = round(tx["total"] / tx["qty"], 3) if tx["qty"] else tx["total"]
-    pdf.cell(cols[0][1], 9, ar(tx["product_name"]), border=1, fill=True)
-    pdf.cell(cols[1][1], 9, str(tx["qty"]),         border=1, fill=True, align="C")
-    pdf.cell(cols[2][1], 9, f"{unit_price:.3f}",    border=1, fill=True, align="C")
-    pdf.cell(cols[3][1], 9, f"{tx['total']:.3f}",   border=1, fill=True, align="C")
-    pdf.ln()
-    pdf.ln(3)
+    # (title, width, align) drawn left→right so product ends up rightmost
+    cols = [
+        (ar("الإجمالي (ر.ع)"),  40, "C"),
+        (ar("سعر الوحدة (ر.ع)"), 42, "C"),
+        (ar("الكمية"),           24, "C"),
+        (ar("المنتج"),           74, "C"),
+    ]
+    vals = [
+        (f"{tx['total']:.3f}", 40, "C"),
+        (f"{unit_price:.3f}",  42, "C"),
+        (str(tx["qty"]),       24, "C"),
+        (ar(tx["product_name"]), 74, "R"),
+    ]
 
-    # ── total ──
-    sf(11, bold=True)
+    # header
+    pdf.set_fill_color(*HEADBG)
+    pdf.rect(L, tbl_y, CW, 11, "F")
+    sf(9.5, bold=True)
     pdf.set_text_color(*NAVY)
-    pdf.cell(152, 10, ar("الإجمالي"), align="R")
-    pdf.set_fill_color(232, 245, 233)
-    pdf.set_draw_color(200, 220, 200)
-    pdf.cell(38, 10, f"{tx['total']:.3f} ر.ع", border=1, fill=True, align="C",
-             new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(10)
+    x = L
+    for title, w, al in cols:
+        pdf.set_xy(x, tbl_y)
+        pdf.cell(w, 11, title, align="C")
+        x += w
+    pdf.set_draw_color(*GOLD)
+    pdf.set_line_width(0.4)
+    pdf.line(L, tbl_y + 11, R, tbl_y + 11)
+    pdf.set_line_width(0.2)
 
-    # ── return policy ──
-    cy2 = pdf.get_y()
-    pdf.set_fill_color(252, 252, 252)
-    pdf.set_draw_color(220, 220, 220)
-    pdf.rect(15, cy2, 180, 20, "FD")
-    sf(8, bold=True)
-    pdf.set_text_color(80, 80, 80)
-    pdf.set_xy(15, cy2 + 3)
-    pdf.cell(180, 5, ar("شروط الاسترجاع"), align="C", new_x="LMARGIN", new_y="NEXT")
-    sf(7)
-    pdf.set_text_color(110, 110, 110)
-    pdf.cell(180, 5,
-             ar("يحق للعميل إرجاع المنتج خلال 7 أيام من تاريخ الشراء بحالته الأصلية مع الاحتفاظ بالفاتورة."),
-             align="C")
+    # data row
+    row_y, row_h = tbl_y + 11, 12
+    sf(10)
+    pdf.set_text_color(*INK)
+    x = L
+    for val, w, al in vals:
+        if al == "R":
+            pdf.set_xy(x, row_y)
+            pdf.cell(w - 4, row_h, val, align="R")
+        else:
+            pdf.set_xy(x, row_y)
+            pdf.cell(w, row_h, val, align="C")
+        x += w
+    pdf.set_draw_color(*LINE)
+    pdf.line(L, row_y + row_h, R, row_y + row_h)
 
-    # ── signature area ──
-    pdf.ln(6)
-    sig_y = pdf.get_y()
-    if sig_y < 230:
-        pdf.set_fill_color(252, 252, 252)
-        pdf.set_draw_color(210, 210, 210)
-        pdf.rect(15, sig_y, 180, 24, "FD")
-        sf(8, bold=True)
-        pdf.set_text_color(80, 80, 80)
-        pdf.set_xy(15, sig_y + 3)
-        pdf.cell(90, 5, ar("توقيع العميل"), align="C")
-        pdf.cell(90, 5, ar("توقيع المسؤول"), align="C", new_x="LMARGIN", new_y="NEXT")
-        pdf.set_draw_color(160, 160, 160)
-        pdf.line(25, sig_y + 18, 95, sig_y + 18)
-        pdf.line(115, sig_y + 18, 185, sig_y + 18)
+    # ── total bar (label right · amount left) ──
+    total_y = row_y + row_h + 12
+    pdf.set_fill_color(*NAVY)
+    pdf.rect(L, total_y, CW, 16, "F")
+    sf(11, bold=True)
+    pdf.set_text_color(*GOLD)
+    pdf.set_xy(L + CW / 2, total_y)
+    pdf.cell(CW / 2 - 6, 16, ar("المبلغ الإجمالي"), align="C")
+    sf(17, bold=True)
+    pdf.set_text_color(*WHITE)
+    pdf.set_xy(L + 6, total_y)
+    pdf.cell(CW / 2 - 6, 16, ar(f"{tx['total']:.3f} ر.ع"), align="C")
+
+    # ── payment status stamp ──
+    status_y = total_y + 24
+    if is_deferred:
+        pdf.set_fill_color(*REDBG)
+        pdf.set_draw_color(*RED)
+        pdf.set_line_width(0.6)
+        pdf.rect(L + 30, status_y, CW - 60, 14, "FD")
+        sf(13, bold=True)
+        pdf.set_text_color(*RED)
+        pdf.set_xy(L + 30, status_y + 2.5)
+        pdf.cell(CW - 60, 8, ar("مؤجلة الدفع / غير مدفوعة"), align="C")
+    else:
+        pdf.set_fill_color(*GRNBG)
+        pdf.set_draw_color(*GRN)
+        pdf.set_line_width(0.6)
+        pdf.rect(L + 48, status_y, CW - 96, 13, "FD")
+        sf(11.5, bold=True)
+        pdf.set_text_color(*GRN)
+        pdf.set_xy(L + 48, status_y + 2.5)
+        pdf.cell(CW - 96, 7, ar("مدفوعة بالكامل"), align="C")
+    pdf.set_line_width(0.2)
+
+    # ── thank-you note ──
+    sf(12, bold=True)
+    pdf.set_text_color(*NAVY)
+    pdf.set_xy(0, 208)
+    pdf.cell(PAGE_W, 7, ar("شكراً لتسوّقكم من Layan"), align="C")
+    sf(9)
+    pdf.set_text_color(*MUTE)
+    pdf.set_xy(0, 216)
+    pdf.cell(PAGE_W, 6, ar("نتشرّف بخدمتكم دائماً"), align="C")
+
+    # ── signature area (seller left · buyer right) ──
+    sig_y = 256
+    pdf.set_draw_color(*INK)
+    pdf.set_line_width(0.3)
+    pdf.line(L + 8,  sig_y, L + 78, sig_y)
+    pdf.line(R - 78, sig_y, R - 8,  sig_y)
+    sf(9.5, bold=True)
+    pdf.set_text_color(*INK)
+    pdf.set_xy(L + 8, sig_y + 1.5)
+    pdf.cell(70, 6, ar("توقيع البائع"), align="C")
+    pdf.set_xy(R - 78, sig_y + 1.5)
+    pdf.cell(70, 6, ar("توقيع المشتري"), align="C")
+    pdf.set_line_width(0.2)
 
     # ── footer ──
-    pdf.set_y(-14)
-    sf(7)
-    pdf.set_text_color(160, 160, 160)
-    now = datetime.now()
-    footer = f"Layan  ·  {now.strftime('%Y-%m-%d')}"
+    pdf.set_draw_color(*LINE)
+    pdf.line(L, 283, R, 283)
+    sf(7.5)
+    pdf.set_text_color(*MUTE)
+    now  = datetime.now()
+    foot = f"Layan  ·  {now.strftime('%Y-%m-%d %H:%M')}"
     if WHATSAPP_NUMBER:
-        footer += f"  ·  {WHATSAPP_NUMBER}"
-    pdf.cell(0, 6, ar(footer), align="C")
+        foot += f"  ·  {WHATSAPP_NUMBER}"
+    pdf.set_xy(0, 285)
+    pdf.cell(PAGE_W, 6, ar(foot), align="C")
 
     buf = io.BytesIO()
     pdf.output(buf)
